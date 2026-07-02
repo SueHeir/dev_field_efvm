@@ -1,0 +1,10 @@
+[package]
+name = "cfd_state"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Conserved/primitive variables and the registered per-cell CFD state store."
+
+[dependencies]
+field_core.workspace = true

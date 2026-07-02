@@ -1,0 +1,31 @@
+[package]
+name = "test_cfd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Top-level compressible-CFD solver on the FIELD substrate: default plugin bundle, prelude, examples."
+
+[dependencies]
+field_core.workspace = true
+grass_app.workspace = true
+cfd_state.workspace = true
+cfd_eos.workspace = true
+cfd_riemann.workspace = true
+cfd_boundary.workspace = true
+cfd_solver.workspace = true
+cfd_ibm.workspace = true
+cfd_output.workspace = true
+grass_io.workspace = true
+field_amr.workspace = true
+grass_scheduler.workspace = true
+grass_mpi.workspace = true
+field_p4est.workspace = true
+
+[features]
+# Flip CommPlugin from the serial no-op backend to the real MPI backend (rsmpi),
+# for the `p4est_multirank` cross-rank validation. Off by default so the normal
+# build/test/clippy path stays single-process. Run:
+#   cargo build -p test_cfd --example p4est_multirank --features mpi_backend
+#   mpirun -np 2 target/debug/examples/p4est_multirank
+mpi_backend = ["field_core/mpi_backend", "grass_mpi/mpi_backend"]

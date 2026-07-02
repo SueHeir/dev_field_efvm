@@ -1,0 +1,13 @@
+[package]
+name = "cfd_output"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "VTK structured-grid output for the CFD state."
+
+[dependencies]
+field_core.workspace = true
+grass_app.workspace = true
+cfd_state.workspace = true
+cfd_eos.workspace = true

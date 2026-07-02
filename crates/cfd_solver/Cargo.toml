@@ -1,0 +1,20 @@
+[package]
+name = "cfd_solver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "RHS assembly over FvMesh faces, CFL timestep, time integration, and the solver plugins."
+
+[dependencies]
+serde.workspace = true
+field_core.workspace = true
+grass_app.workspace = true
+grass_scheduler.workspace = true
+grass_mpi.workspace = true
+cfd_state.workspace = true
+cfd_eos.workspace = true
+cfd_riemann.workspace = true
+
+[dev-dependencies]
+cfd_boundary.workspace = true

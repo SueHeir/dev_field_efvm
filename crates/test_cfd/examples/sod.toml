@@ -1,0 +1,17 @@
+# Config-driven Sod shock tube. Run:
+#   cargo run -p test_cfd --example config_driven -- crates/test_cfd/examples/sod.toml
+
+[grid]
+nx = 100
+ny = 1
+nz = 1
+ng = 2
+bounds_lo = [0.0, 0.0, 0.0]
+bounds_hi = [1.0, 0.01, 0.01]
+
+[solver]
+cfl = 0.4
+viscous = false
+
+[run]
+steps = 80

@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cfd_state",
+    "crates/cfd_eos",
+    "crates/cfd_riemann",
+    "crates/cfd_solver",
+    "crates/cfd_boundary",
+    "crates/test_cfd",
+    "crates/cfd_ibm",
+    "crates/cfd_output",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SueHeir/test-cfd"
+
+# FIELD substrate + GRASS framework, sibling checkouts. Mirrors how DIRT path-deps SOIL.
+[workspace.dependencies]
+field_core = { path = "../field/crates/field_core" }
+field_amr = { path = "../field/crates/field_amr" }
+field_p4est = { path = "../field/crates/field_p4est" }
+grass_app = { path = "../grass/crates/grass_app" }
+grass_scheduler = { path = "../grass/crates/grass_scheduler" }
+grass_mpi = { path = "../grass/crates/grass_mpi" }
+grass_io = { path = "../grass/crates/grass_io" }
+serde = { version = "1", features = ["derive"] }
+# Internal physics crates.
+cfd_state = { path = "crates/cfd_state" }
+cfd_eos = { path = "crates/cfd_eos" }
+cfd_riemann = { path = "crates/cfd_riemann" }
+cfd_solver = { path = "crates/cfd_solver" }
+cfd_boundary = { path = "crates/cfd_boundary" }
+test_cfd = { path = "crates/test_cfd" }
+cfd_ibm = { path = "crates/cfd_ibm" }
+cfd_output = { path = "crates/cfd_output" }
+# (cfd_output also a dep of test_cfd)

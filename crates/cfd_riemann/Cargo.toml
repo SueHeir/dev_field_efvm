@@ -1,0 +1,11 @@
+[package]
+name = "cfd_riemann"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Numerical flux schemes (Rusanov, HLLC+Thornber) for the compressible Euler equations."
+
+[dependencies]
+cfd_state.workspace = true
+cfd_eos.workspace = true

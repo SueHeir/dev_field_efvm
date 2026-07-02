@@ -1,0 +1,10 @@
+[package]
+name = "cfd_eos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Equation of state and transport: ideal gas, Sutherland viscosity, conductivity."
+
+[dependencies]
+cfd_state.workspace = true
