@@ -21,9 +21,18 @@
 //! - **Resolved (IBM / cut-cell).** The sphere is geometrically resolved on the
 //!   mesh (via [`super::Sphere`] + the ghost-cell / cut-cell machinery); the net
 //!   fluid force is the **surface-load integral** (pressure + viscous traction)
-//!   over the body. Valid when `D/Δx ≳ 10`. The force handoff is validated in the
-//!   `sphere_drag_resolved` example against exact references (Archimedes buoyancy
-//!   and the Stokes drag `Cd = 24/Re`).
+//!   over the body. Valid when `D/Δx ≳ 10`. The `sphere_drag_resolved` example
+//!   validates the **surface-load integrator** — the step that turns a cell
+//!   pressure field into the net force handed to the particle — against analytic
+//!   fields with exact answers: a uniform pressure integrates to zero net force,
+//!   a hydrostatic pressure recovers the Archimedes buoyancy `−ρ_f V g`, and a
+//!   companion check recovers the sphere volume `4/3 π R³`. It runs **no flow
+//!   solve**, so the resolved *viscous* drag `Cd(Re)` is **not yet validated** on
+//!   this path. Establishing it needs a live 3-D Navier–Stokes solve past the
+//!   sphere (the 3-D analogue of `cylinder_drag_validation`, reusing this exact
+//!   integrator) held to a grid-convergence-justified tolerance; that is a
+//!   deferred follow-up owned by the resolved-track goal that consumes it
+//!   (`dem-cfd-resolved-ibm-dkt`), not something established here.
 //!
 //! - **Unresolved (point-particle).** The sphere is smaller than a cell; the net
 //!   force is a **drag closure** ([`beta_gidaspow`] / [`sphere_drag_force`]) of the

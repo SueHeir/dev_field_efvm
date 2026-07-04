@@ -23,11 +23,17 @@
 //! on. FIELD owns the mesh; the sphere is immersed (`signed_distance`), never a
 //! cell owner.
 //!
-//! The full **viscous** `Cd(Re)` from a live 3-D Navier–Stokes solve past the
-//! sphere (the 3-D analogue of the `cylinder_drag_validation` case) is the heavier
-//! follow-up; it reuses this exact load integrator, now validated on the
-//! analytically-solvable pressure loads. The Stokes drag coefficient the resolved
-//! path targets in that limit, `Cd = 24/Re`, is printed for reference.
+//! This example validates the surface-load INTEGRATOR only; it runs **no flow
+//! solve**, so the resolved *viscous* drag `Cd(Re)` is **not established here**.
+//! Recovering it needs a live 3-D Navier–Stokes solve past the sphere (the 3-D
+//! analogue of the `cylinder_drag_validation` case), held to a grid-convergence-
+//! justified tolerance against an independent standard-drag correlation
+//! (Schiller–Naumann 1935 / Clift–Grace–Weber 1978); it reuses this exact load
+//! integrator, now validated on the analytically-solvable pressure loads. That
+//! resolved-drag benchmark is a deferred follow-up owned by the resolved-track
+//! goal that consumes it (`dem-cfd-resolved-ibm-dkt`). The `Cd(Re)` values this
+//! example prints below are that follow-up's *target*, printed for reference —
+//! **not** a validation performed here.
 //!
 //! Declarative TOML (`argv[1]`):
 //!
@@ -146,6 +152,7 @@ fn main() {
     let uniform_ratio = f_uniform_mag / f_hydro_mag.max(1e-30);
 
     // Reference drag coefficient the resolved viscous follow-up targets.
+    // NOTE: informational only — NOT validated by this example (no flow solve).
     let cd_stokes = 24.0 / flow.reynolds.max(1e-12);
     let cd_sn = cd_schiller_naumann(flow.reynolds.max(1e-12));
 
@@ -157,7 +164,7 @@ fn main() {
     println!("# solid volume:   {vol_num:.6e}  (ref {vol_ref:.6e}, err {:.2}%, tol {:.1}%)", 100.0 * vol_err, 100.0 * valid.tol_volume);
     println!("# uniform p force: {f_uniform:?}   |F|/|F_hydro| = {:.2e}  (tol {:.1e})", uniform_ratio, valid.tol_uniform_ratio);
     println!("# hydrostatic Fz:  {:.6e}  (Archimedes {:.6e}, err {:.2}%, tol {:.1}%)", f_hydro[2], buoy_ref[2], 100.0 * buoy_err, 100.0 * valid.tol_buoyancy);
-    println!("# target resolved Cd @ Re={:.3}: Cd_stokes = 24/Re = {cd_stokes:.4}   Cd_SN = {cd_sn:.4}   (U_inf = {})", flow.reynolds, flow.u_inf);
+    println!("# follow-up TARGET (informational, NOT validated here — no flow solve) resolved Cd @ Re={:.3}: Cd_stokes = 24/Re = {cd_stokes:.4}   Cd_SN = {cd_sn:.4}   (U_inf = {})", flow.reynolds, flow.u_inf);
 
     let pass_vol = vol_err <= valid.tol_volume;
     let pass_uniform = uniform_ratio <= valid.tol_uniform_ratio;
