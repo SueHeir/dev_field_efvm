@@ -1,19 +1,19 @@
-# PLAN — `test-cfd`: the CFD physics layer on the FIELD substrate
+# PLAN — `dev_field_efvm`: the CFD physics layer on the FIELD substrate
 
-The DIRT-equivalent for the mesh/Eulerian branch. `test-cfd` is compressible
+The DIRT-equivalent for the mesh/Eulerian branch. `dev_field_efvm` is compressible
 Navier–Stokes physics expressed as GRASS plugins riding the **FIELD** mesh
 substrate, the way DIRT rides SOIL.
 
 ```
 GRASS    framework: App + Plugin + Scheduler + IO + MPI
   └─ FIELD   substrate: FvMesh / StructuredMesh, FieldData, FieldRegistry, HaloPlan, MeshScheduleSet
-       └─ test-cfd  physics: ConsVar state, EOS, Riemann flux, BCs, viscous, RK, IBM   ← this repo
+       └─ dev_field_efvm  physics: ConsVar state, EOS, Riemann flux, BCs, viscous, RK, IBM   ← this repo
 ```
 
 This plan ports `toy-cfd`'s physics crates onto FIELD's contracts. The substrate
 half of `toy-cfd` (`cfd_grid`, `cfd_state`'s `FieldData`/`FieldRegistry`,
 `cfd_derive`) is **already provided by FIELD** (`UniformMesh`, `FieldData` +
-`FieldRegistry`, `field_derive`), so `test-cfd` writes *zero* mesh, storage, or
+`FieldRegistry`, `field_derive`), so `dev_field_efvm` writes *zero* mesh, storage, or
 halo code — it registers state and provides physics systems, exactly as DIRT
 writes no neighbor-list or migration code.
 
@@ -57,7 +57,7 @@ Mirror DIRT's split: thin leaf crates for constitutive pieces, a heart crate for
 the assembly loop, and a top-level convenience crate exporting a default bundle +
 prelude. Every crate depends on `field_core` + `grass_*` only; **none depends on
 another *physics-policy* crate in a way that inverts the substrate rule**, and
-nothing in `field_*` ever depends on `test-cfd`.
+nothing in `field_*` ever depends on `dev_field_efvm`.
 
 | crate | responsibility | key types | FIELD contract it touches |
 |---|---|---|---|
@@ -73,11 +73,11 @@ Optional later crates (out of M1 scope, noted for symmetry with DIRT's leaf
 crates and the existing repo `PLAN.md`): `cfd_amr` (rides a future
 `field_amr::ForestMesh` + `AdaptiveMesh`, `PostFlux` reflux via `#[reverse]`),
 and generic VTK output which belongs in a substrate-side `field_print`, not here
-(only CFD-specific scalar derivation stays in `test-cfd`).
+(only CFD-specific scalar derivation stays in `dev_field_efvm`).
 
 ### What changed vs. toy-cfd's crate split
 
-- **`cfd_grid` is deleted** — `UniformMesh` is FIELD's. `test-cfd` never sees a
+- **`cfd_grid` is deleted** — `UniformMesh` is FIELD's. `dev_field_efvm` never sees a
   grid struct; it sees `&M: FvMesh (+ StructuredMesh)`.
 - **`cfd_state`'s `FieldData`/`FieldRegistry` definitions are deleted** — those
   are FIELD's. `cfd_state` keeps only `ConsVar`/`PrimVar` and now *implements*
@@ -673,4 +673,4 @@ the cheapest path to a validated physics result (Sod by step 4).
    feed back upstream): `flux_normal` is physics-side, fine; but (a) periodic
    halo links (#5), (b) a `for_each_boundary_face`/layered-ghost accessor so BCs
    don't depend on `StructuredMesh`, and (c) eventually `AdaptiveMesh` reflux are
-   the three places `test-cfd` will press on the substrate. None block M1.
+   the three places `dev_field_efvm` will press on the substrate. None block M1.

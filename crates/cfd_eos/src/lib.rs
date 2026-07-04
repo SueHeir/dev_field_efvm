@@ -1,7 +1,7 @@
 //! Equation of state and transport: ideal gas with Sutherland viscosity.
 //!
 //! Pure functions of [`ConsVar`]/[`PrimVar`] — no mesh, no substrate types. This
-//! is the test-cfd analog of DIRT's material/constitutive layer (`MaterialTable`):
+//! is the dev_field_efvm analog of DIRT's material/constitutive layer (`MaterialTable`):
 //! the physics of "given state, what are pressure / temperature / sound speed /
 //! transport coefficients", swappable behind the [`Eos`] trait.
 

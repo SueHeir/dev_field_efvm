@@ -8,7 +8,7 @@
 //! moves/resets it generically.
 //!
 //! This crate is the mesh-agnostic, EOS-agnostic core: just the variable types
-//! and their algebra. It is the test-cfd analog of DIRT's `dirt_atom` (which
+//! and their algebra. It is the dev_field_efvm analog of DIRT's `dirt_atom` (which
 //! defines `DemAtom` over SOIL's `Atom`).
 
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};

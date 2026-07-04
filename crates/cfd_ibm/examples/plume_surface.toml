@@ -3,7 +3,7 @@
 # limit, cross-validated against the resolved DEM–CFD reference.
 #
 # A gas flows UP (+z) through a settled μ(I)-continuum granular bed (MUD SPH),
-# coupled to the gas (test-cfd FIELD) through the DEM–CFD seam VERBATIM
+# coupled to the gas (dev_field_efvm FIELD) through the DEM–CFD seam VERBATIM
 # (`cfd_ibm::coupling`). The tolerance-checked observable is the minimum
 # fluidization velocity U_mf, measured through the LIVE coupled seam and:
 #   1. cross-method vs the discrete DEM–CFD bed run through the identical seam

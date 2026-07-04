@@ -1,5 +1,5 @@
 //! End-to-end solver tests: assemble a real `App` on a `UniformMesh` and drive it
-//! through forward-Euler steps. These exercise the full FIELD↔test-cfd seam —
+//! through forward-Euler steps. These exercise the full FIELD↔dev_field_efvm seam —
 //! state registration, field resize, halo, boundary fill, the `for_each_face`
 //! flux scatter, and the integrator — not just isolated functions.
 

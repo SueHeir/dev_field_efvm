@@ -39,7 +39,7 @@ use cfd_state::ConsVar;
 use field_core::{UniformMesh, Vec3};
 use grass_app::{PluginGroup, PluginGroupBuilder};
 
-/// The default test-cfd physics bundle. Construct with an initial-condition
+/// The default dev_field_efvm physics bundle. Construct with an initial-condition
 /// closure, then tune with the builder methods.
 pub struct CfdDefaultPlugins {
     init: Arc<dyn Fn(Vec3) -> ConsVar + Send + Sync>,
@@ -97,7 +97,7 @@ impl PluginGroup for CfdDefaultPlugins {
     }
 }
 
-/// Commonly used imports for assembling a test-cfd solver.
+/// Commonly used imports for assembling a dev_field_efvm solver.
 pub mod prelude {
     pub use crate::CfdDefaultPlugins;
     pub use cfd_boundary::{

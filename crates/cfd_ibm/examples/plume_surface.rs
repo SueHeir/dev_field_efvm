@@ -15,7 +15,7 @@
 //! discrete `soil::Atom` grains — here the granular phase is a **μ(I) elasto-
 //! viscoplastic continuum** carried by the MUD SPH tier (`mud_core`): a real
 //! settling bed of continuum parcels, each carrying many grains. The parcels are
-//! coupled to the gas (test-cfd FIELD substrate, `CfdState`) through the **DEM–CFD
+//! coupled to the gas (dev_field_efvm FIELD substrate, `CfdState`) through the **DEM–CFD
 //! interphase seam reused VERBATIM** (`cfd_ibm::coupling`): the parcels' solid
 //! volume is charged onto the mesh as a per-cell **solid volume fraction**, the seam
 //! `drag_force_from_beta` / `apply_momentum_sink` kernels form the interphase force,
@@ -32,7 +32,7 @@
 //! **cross-method agreement**: the SPH-continuum `U_mf`, measured through the live
 //! coupled seam, must agree with (i) the **discrete DEM–CFD** `U_mf` measured through
 //! the *identical* seam (the resolved DEM–CFD reference — the merged
-//! `fluidized_bed_umf` / test-cfd PR #6 fluidization case, reproduced in-example on
+//! `fluidized_bed_umf` / dev_field_efvm PR #6 fluidization case, reproduced in-example on
 //! the same grains), and (ii) the independent **Wen & Yu (1966)** correlation. Both
 //! `U_mf`s are MEASURED (bisection on the live net seam force), not asserted on paper.
 //!

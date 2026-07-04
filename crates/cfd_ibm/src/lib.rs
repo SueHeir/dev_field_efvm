@@ -8,7 +8,7 @@
 //! the wall BC (no-slip, adiabatic, zero-pressure-gradient) holds at the surface
 //! midpoint. The regular flux at fluid↔solid faces then reproduces the wall.
 //!
-//! This is the test-cfd analog of a DIRT wall/contact plugin: pure physics over
+//! This is the dev_field_efvm analog of a DIRT wall/contact plugin: pure physics over
 //! the substrate's mesh + fields. Geometry is pluggable; an analytic [`Cylinder`]
 //! ships here (the `cylinder_drag_validation` case); FSI-coupled spheres from the
 //! particle stack are the future `grass_multi` story.

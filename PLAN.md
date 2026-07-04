@@ -1,4 +1,4 @@
-# test-cfd — Restructuring Plan
+# dev_field_efvm — Restructuring Plan
 
 Migrating `toy-cfd` into a clean two-repo stack on the **GRASS** framework, mirroring
 the proven **GRASS → SOIL → DIRT** architecture on the mesh/Eulerian side.
@@ -15,12 +15,12 @@ of the substrate layer plus its physics:
 ```
 GRASS    framework      App + Plugin + Scheduler, IO, MPI coupling   (no particles/mesh/physics)
   ├─ SOIL    particle substrate   Atom, domain decomp, comm, neighbor lists ── DIRT      (DEM physics)
-  └─ FIELD   mesh substrate       cells/faces/nodes, partition, halo, geometry ── test-cfd (CFD physics)
+  └─ FIELD   mesh substrate       cells/faces/nodes, partition, halo, geometry ── dev_field_efvm (CFD physics)
                                                                                   ^ this repo
 ```
 
 - **FIELD** = the SOIL-equivalent for meshes. New repo (sibling of `soil/`).
-- **test-cfd** = the DIRT-equivalent: compressible-Navier–Stokes physics as GRASS
+- **dev_field_efvm** = the DIRT-equivalent: compressible-Navier–Stokes physics as GRASS
   plugins, zero infrastructure of its own. This repo.
 
 **Naming convention (resolve the "field" collision up front):** the substrate is
@@ -72,7 +72,7 @@ This is the direct sibling of SOIL's `AtomData`, and **toy-cfd already implement
 
 Downstream physics registers state once (`register_field_data!`, mirroring
 `register_atom_data!`) and the substrate carries the columns through every halo exchange,
-partition, AMR transfer, and restart automatically — **test-cfd writes no comm code**,
+partition, AMR transfer, and restart automatically — **dev_field_efvm writes no comm code**,
 exactly as DIRT writes none.
 
 ---
@@ -111,18 +111,18 @@ migration:
 | `cfd_state` (FieldData trait + registry) | **field_core** | the AtomData-analog storage |
 | `cfd_derive` (`#[derive(FieldData)]`) | **field_derive** | sibling of `soil_derive` |
 | `cfd_p4est` (forest topology, leaf/neighbor queries) | **field_amr** | substrate-side AMR topology |
-| `cfd_p4est_solver` | **split** | coarse-fine *flux matching/reflux* → field_amr; the *physics* (MUSCL, cut-cell drag) → test-cfd |
-| `cfd_output` (VTK) | **split** | generic dump → field_print; CFD-specific state → test-cfd |
+| `cfd_p4est_solver` | **split** | coarse-fine *flux matching/reflux* → field_amr; the *physics* (MUSCL, cut-cell drag) → dev_field_efvm |
+| `cfd_output` (VTK) | **split** | generic dump → field_print; CFD-specific state → dev_field_efvm |
 | `cfd_integrate` (Euler, RK3) | **field_integrate** (lean) | SOIL keeps Verlet in substrate → mirror: generic RK in substrate, physics picks scheme |
-| `cfd_eos` (ideal gas, Sutherland) | **test-cfd** | constitutive (DIRT material-model analog) |
-| `cfd_riemann` (Rusanov, HLLC+Thornber) | **test-cfd** | flux constitutive laws (DIRT contact-model analog) |
-| `cfd_boundary` (BC trait + registry) | **test-cfd** | physics BCs (SOIL keeps method-agnostic `pin`; DEM BCs live in DIRT) |
-| `cfd_solver` (RHS assembly, CFL, IBM) | **test-cfd** | the heart — twin of DIRT's fused `contact.rs` loop |
-| `toy_cfd` (prelude/plugin bundle) | **test-cfd** | becomes `CfdDefaultPlugins` (cf. `GranularDefaultPlugins`) |
+| `cfd_eos` (ideal gas, Sutherland) | **dev_field_efvm** | constitutive (DIRT material-model analog) |
+| `cfd_riemann` (Rusanov, HLLC+Thornber) | **dev_field_efvm** | flux constitutive laws (DIRT contact-model analog) |
+| `cfd_boundary` (BC trait + registry) | **dev_field_efvm** | physics BCs (SOIL keeps method-agnostic `pin`; DEM BCs live in DIRT) |
+| `cfd_solver` (RHS assembly, CFL, IBM) | **dev_field_efvm** | the heart — twin of DIRT's fused `contact.rs` loop |
+| `toy_cfd` (prelude/plugin bundle) | **dev_field_efvm** | becomes `CfdDefaultPlugins` (cf. `GranularDefaultPlugins`) |
 
 ---
 
-## 5. test-cfd physics layer (the DIRT-twin)
+## 5. dev_field_efvm physics layer (the DIRT-twin)
 
 Pure constitutive + discretization physics as GRASS plugins, riding FIELD:
 
@@ -148,11 +148,11 @@ to the local `field/` checkout; `dirt-mpi`/`dirt-dev-gpu`-style variant branches
 
 ## 6. Milestones
 
-- **M1 — Explicit parity (no linear algebra).** FIELD + test-cfd reproduce toy-cfd's
+- **M1 — Explicit parity (no linear algebra).** FIELD + dev_field_efvm reproduce toy-cfd's
   `UniformGrid` examples (Sod, pore flow, cylinder drag Re-sweep) on structured Cartesian.
   Fully explicit; mirrors SOIL's matrix-free scope. *Definition of done: cylinder-drag
   validation matches toy-cfd numbers; MPI ghost tests pass.*
-- **M2 — AMR.** `field_amr` carries octree refine/coarsen + reflux + transfer; test-cfd
+- **M2 — AMR.** `field_amr` carries octree refine/coarsen + reflux + transfer; dev_field_efvm
   reproduces the forest examples (cylinder Re40 AMR, regrid demo, spheres-in-flow).
 - **M3 — Implicit / linear-solver seam (the "serious CFD substrate" milestone).** Add the
   sparse-matrix + iterative-solver interface FIELD deliberately lacks at M1. Decision to
@@ -170,7 +170,7 @@ to the local `field/` checkout; `dirt-mpi`/`dirt-dev-gpu`-style variant branches
   block-structured/octree AMR; p4est is the same octree lineage AMReX-style codes use).
 - Architecture (physics-agnostic substrate + plugin physics + scheduler) is the
   **MOOSE/libMesh** and **PETSc DMPlex + TS** design philosophy — re-expressed as
-  GRASS + FIELD + test-cfd, but in Rust with a Bevy-style ECS scheduler, which essentially
+  GRASS + FIELD + dev_field_efvm, but in Rust with a Bevy-style ECS scheduler, which essentially
   no established CFD code does.
 - The one mature capability the incumbents have that this stack defers to M3 is the
   **implicit linear-solver stack** (PETSc/hypre). Being explicit lets M1 ship coherent.
