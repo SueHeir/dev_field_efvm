@@ -61,3 +61,11 @@ path = "examples/fluidized_bed_umf.rs"
 [[example]]
 name = "plume_surface"
 path = "examples/plume_surface.rs"
+
+[[example]]
+name = "sphere_drag_validation"
+path = "examples/sphere_drag_validation.rs"
+
+[[example]]
+name = "dkt_sedimentation"
+path = "examples/dkt_sedimentation.rs"
