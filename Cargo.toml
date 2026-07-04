@@ -26,6 +26,14 @@ grass_app = { path = "../grass/crates/grass_app" }
 grass_scheduler = { path = "../grass/crates/grass_scheduler" }
 grass_mpi = { path = "../grass/crates/grass_mpi" }
 grass_io = { path = "../grass/crates/grass_io" }
+grass_multi = { path = "../grass/crates/grass_multi" }
+# SOIL particle substrate — the Lagrangian side of the DEM-CFD seam. Only the
+# `settling_sphere` coupling example consumes it (a dev-dep of `cfd_ibm`), so it
+# never enters the library build. SOIL pins GRASS by git; the `[patch]` at the
+# bottom redirects that to the same sibling path checkout FIELD/test-cfd use, so
+# there is exactly ONE `grass_app`/`App` type across the coupled sub-Apps.
+soil_core = { path = "../soil/crates/soil_core", default-features = false, features = ["precision-double"] }
+soil_verlet = { path = "../soil/crates/soil_verlet", default-features = false, features = ["precision-double"] }
 serde = { version = "1", features = ["derive"] }
 # Internal physics crates.
 cfd_state = { path = "crates/cfd_state" }
@@ -37,3 +45,14 @@ test_cfd = { path = "crates/test_cfd" }
 cfd_ibm = { path = "crates/cfd_ibm" }
 cfd_output = { path = "crates/cfd_output" }
 # (cfd_output also a dep of test_cfd)
+
+# SOIL and its crates pin GRASS by git URL; redirect that source to the same
+# sibling path checkout the rest of this workspace already builds against, so the
+# coupled DEM (soil) and CFD (field) sub-Apps share one `grass_app::App` type
+# (a git source and a path source are distinct crate instances to Cargo otherwise).
+[patch."ssh://git@192.168.0.170:2222/SueHeir/grass.git"]
+grass_app = { path = "../grass/crates/grass_app" }
+grass_scheduler = { path = "../grass/crates/grass_scheduler" }
+grass_mpi = { path = "../grass/crates/grass_mpi" }
+grass_derive = { path = "../grass/crates/grass_derive" }
+grass_io = { path = "../grass/crates/grass_io" }
