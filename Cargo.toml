@@ -46,6 +46,22 @@ cfd_ibm = { path = "crates/cfd_ibm" }
 cfd_output = { path = "crates/cfd_output" }
 # (cfd_output also a dep of test_cfd)
 
+# MUD — the granular-SPH (μ(I) continuum) code (repo SPH_temp on Gitea). Consumed
+# ONLY by the `plume_surface` coupling example (a dev-dep of `cfd_ibm`); it never
+# enters the library build. MUD pulls GRASS/SOIL from the Gitea remote; the
+# `[patch]` blocks below redirect those to the same sibling path checkouts the
+# rest of this workspace uses, so MUD's SPH sub-App and the FIELD gas sub-App
+# share exactly one `grass_app::App`/`soil_core::Atom` type across the seam.
+# NOTE (cross-repo): pinned by `rev` to the SPH_temp commit on branch
+# auto/sph-cfd-plume-surface that repoints MUD's grass/soil deps off the
+# dead-on-this-fleet github.com URLs to Gitea. Re-point to a `master` tag/rev
+# once SPH_temp PR (auto/sph-cfd-plume-surface) merges. (A `rev` pin, not a
+# `branch`, sidesteps a cargo 1.96 feature-resolver panic on git branch sources.)
+mud_core = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_constitutive = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_physics = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+
 # SOIL and its crates pin GRASS by git URL; redirect that source to the same
 # sibling path checkout the rest of this workspace already builds against, so the
 # coupled DEM (soil) and CFD (field) sub-Apps share one `grass_app::App` type
@@ -56,3 +72,18 @@ grass_scheduler = { path = "../grass/crates/grass_scheduler" }
 grass_mpi = { path = "../grass/crates/grass_mpi" }
 grass_derive = { path = "../grass/crates/grass_derive" }
 grass_io = { path = "../grass/crates/grass_io" }
+# grass_multi: pulled by MUD (SPH_temp) from Gitea; unify with the path dep above.
+grass_multi = { path = "../grass/crates/grass_multi" }
+
+# MUD (SPH_temp, post-repoint) and the local SOIL crates both pull GRASS from the
+# Gitea remote; the block above already redirects that to `../grass`. MUD also
+# pulls the SOIL crates from Gitea, so redirect SOIL to the same `../soil` path
+# checkout the DEM-CFD seam (a direct path dep) already uses — otherwise MUD's
+# git `soil_core` and test-cfd's path `soil_core` are two distinct `Atom` types
+# and the granular-SPH parcels could not cross the same seam as DEM particles.
+[patch."ssh://git@192.168.0.170:2222/SueHeir/soil.git"]
+soil_core = { path = "../soil/crates/soil_core" }
+soil_derive = { path = "../soil/crates/soil_derive" }
+soil_verlet = { path = "../soil/crates/soil_verlet" }
+soil_print = { path = "../soil/crates/soil_print" }
+soil_deform = { path = "../soil/crates/soil_deform" }
