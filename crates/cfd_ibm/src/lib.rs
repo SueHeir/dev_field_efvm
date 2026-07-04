@@ -26,6 +26,13 @@ use grass_scheduler::{Res, ResMut};
 mod cutcell;
 pub use cutcell::{Body, CutCellMetrics, Sphere};
 
+pub mod coupling;
+pub use coupling::{
+    beta_gidaspow, cd_clift_grace_weber, cd_schiller_naumann, drag_force_from_beta,
+    sphere_drag_force, terminal_velocity, terminal_velocity_stokes, InterphaseForces,
+    ParticleKinematics, ParticleSet,
+};
+
 // ─── Ghost-cell metadata ─────────────────────────────────────────────────────
 
 /// Per-ghost-cell IBM metadata, recomputed when the geometry moves.
