@@ -42,3 +42,7 @@ path = "examples/settling_sphere.rs"
 [[example]]
 name = "sphere_drag_resolved"
 path = "examples/sphere_drag_resolved.rs"
+
+[[example]]
+name = "fixed_bed_ergun"
+path = "examples/fixed_bed_ergun.rs"

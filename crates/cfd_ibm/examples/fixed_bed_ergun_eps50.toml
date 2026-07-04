@@ -1,0 +1,38 @@
+# Fixed-bed pressure drop vs the Ergun (1952) correlation — unresolved DEM-CFD
+# seam, looser bed porosity ε = 0.50.
+#
+# The COMPANION case to fixed_bed_ergun_eps40.toml: same beads, same gas, same
+# velocity sweep, but a looser packing (solid_fraction 0.50 -> eps 0.50). Matching
+# Ergun at BOTH porosities is what pins the ε^3 porosity scaling of the assembled
+# pressure drop — a wrong ε-power would pass one case and fail the other.
+#
+#   cargo run --release -p cfd_ibm --example fixed_bed_ergun -- \
+#       crates/cfd_ibm/examples/fixed_bed_ergun_eps50.toml
+
+[gas]
+rho = 1.2          # kg/m^3 (air)
+p = 1.0e5          # Pa
+mu = 1.8e-5        # Pa.s (air)
+
+[particle]
+diameter = 2.0e-3  # m  (2 mm beads)
+density = 2500.0   # kg/m^3
+
+[packing]
+ncx = 6
+ncy = 6
+ncz = 12
+solid_fraction = 0.50   # -> eps = 0.50
+ng = 2
+
+[flow]
+superficial = [0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0]   # m/s
+dt = 1.0e-4        # s
+
+[validation]
+tol_rel_ergun = 0.02
+eps_max = 0.8
+rep_viscous_below = 5.0
+rep_inertial_above = 100.0
+tol_momentum = 1.0e-6
+tol_deposit_bulk = 0.08

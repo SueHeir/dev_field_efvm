@@ -1,0 +1,45 @@
+# Fixed-bed pressure drop vs the Ergun (1952) correlation — unresolved DEM-CFD
+# seam, canonical bed porosity ε = 0.40.
+#
+#   cargo run --release -p cfd_ibm --example fixed_bed_ergun -- \
+#       crates/cfd_ibm/examples/fixed_bed_ergun_eps40.toml
+#
+# A static FCC packing of 2 mm spheres fills a ~18x18x36 mm column; air is driven
+# up through it at a sweep of superficial velocities U. The measured dP/L (from
+# the summed interphase drag the seam computes on the packing) must match the
+# Ergun correlation at every U. The sweep spans Re_p ~ 1 (viscous / Blake-Kozeny
+# dominated) to Re_p ~ 440 (inertia / Burke-Plummer comparable) — a genuine
+# crossover, not a single regime. Reference: Ergun 1952.
+
+[gas]
+rho = 1.2          # kg/m^3 (air)
+p = 1.0e5          # Pa
+mu = 1.8e-5        # Pa.s (air)
+
+[particle]
+diameter = 2.0e-3  # m  (2 mm beads)
+density = 2500.0   # kg/m^3 (drag is density-independent; kept for completeness)
+
+# FCC packing: 6x6x12 conventional cells (4 spheres each) = 1728 spheres. The
+# lattice constant is derived from solid_fraction so the bed porosity is exactly
+# ε = 1 - solid_fraction = 0.40, with non-overlapping spheres (FCC max phi 0.74).
+# The gas mesh is aligned one interior cell per conventional cell (dx = a), so
+# deposit_void_fraction yields a uniform per-cell void fraction = the bed porosity.
+[packing]
+ncx = 6
+ncy = 6
+ncz = 12
+solid_fraction = 0.60   # -> eps = 0.40
+ng = 2                  # gas-mesh ghost width
+
+[flow]
+superficial = [0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0]   # m/s
+dt = 1.0e-4        # s  (momentum-sink integral / conservation check)
+
+[validation]
+tol_rel_ergun = 0.02       # |dP/L_meas - dP/L_Ergun|/dP/L_Ergun, per sweep point
+eps_max = 0.8              # dense (Ergun) branch of beta_gidaspow requires eps <= 0.8
+rep_viscous_below = 5.0    # sweep must reach DOWN to Re_p <= 5 (viscous end)
+rep_inertial_above = 100.0 # ...and UP to Re_p >= 100 (inertial end): spans the crossover
+tol_momentum = 1.0e-6      # two-way momentum-exchange conservation + exact-mean deposit
+tol_deposit_bulk = 0.08    # |eps_mean(deposit) - eps_bed|/eps_bed (bulk; clamp costs a few %)
