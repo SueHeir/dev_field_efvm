@@ -125,6 +125,7 @@ version = "0.1.0"
 dependencies = [
  "cfd_boundary",
  "cfd_eos",
+ "cfd_output",
  "cfd_riemann",
  "cfd_state",
  "field_core",
@@ -132,6 +133,7 @@ dependencies = [
  "grass_mpi",
  "grass_scheduler",
  "serde",
+ "toml",
 ]
 
 [[package]]

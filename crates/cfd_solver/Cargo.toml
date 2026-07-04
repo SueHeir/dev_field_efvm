@@ -18,3 +18,5 @@ cfd_riemann.workspace = true
 
 [dev-dependencies]
 cfd_boundary.workspace = true
+cfd_output.workspace = true
+toml = "0.8"
