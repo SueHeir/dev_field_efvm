@@ -466,7 +466,7 @@ dependencies = [
 [[package]]
 name = "mud_atom"
 version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
+source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
 dependencies = [
  "grass_app",
  "grass_scheduler",
@@ -479,12 +479,12 @@ dependencies = [
 [[package]]
 name = "mud_constitutive"
 version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
+source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
 
 [[package]]
 name = "mud_core"
 version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
+source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
 dependencies = [
  "grass_app",
  "grass_derive",
@@ -502,12 +502,12 @@ dependencies = [
 [[package]]
 name = "mud_kernel"
 version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
+source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
 
 [[package]]
 name = "mud_physics"
 version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
+source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f#8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f"
 dependencies = [
  "grass_app",
  "grass_scheduler",

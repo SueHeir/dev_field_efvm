@@ -1,7 +1,7 @@
 //! The solver heart: RHS assembly over `FvMesh` faces, time integration, CFL
 //! timestep, and the GRASS plugins that wire them into [`MeshScheduleSet`].
 //!
-//! This is the test-cfd analog of DIRT's `dirt_granular` — the crate that owns
+//! This is the dev_field_efvm analog of DIRT's `dirt_granular` — the crate that owns
 //! the per-step compute loop. It writes **no** mesh, storage, or halo code: it
 //! reads the registered [`CfdState`], iterates the substrate's faces, and lets
 //! `field_core` move ghosts. The inviscid flux loop is generic over any
