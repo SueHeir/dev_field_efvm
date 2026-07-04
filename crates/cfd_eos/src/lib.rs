@@ -86,6 +86,36 @@ pub fn thermal_conductivity(mu: f64, gamma: f64, r_gas: f64) -> f64 {
     mu * cp / PR
 }
 
+/// Dynamic-viscosity transport model, selected per case as a GRASS resource
+/// (`Res<Viscosity>`). `Sutherland` is air's physical `μ(T)`; `Constant` pins `μ`
+/// so a case can target a chosen Reynolds number `Re = ρ U L / μ` directly.
+///
+/// The constant option is what makes incompressible-limit validations tractable in
+/// a *compressible* solver: to resolve, say, `Re = 20` past a cylinder at a sane
+/// Mach number you need `μ ≈ O(0.1)`, ~10⁴× air's physical `1.8e-5 Pa·s`. It is
+/// equally the knob the DEM–CFD drag closure needs to set a particle Reynolds
+/// number. Default is [`Viscosity::Sutherland`], so existing air cases are
+/// unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum Viscosity {
+    /// Air's Sutherland law `μ(T)` (the physical default).
+    #[default]
+    Sutherland,
+    /// A fixed dynamic viscosity `μ` [Pa·s], independent of temperature.
+    Constant(f64),
+}
+
+impl Viscosity {
+    /// Dynamic viscosity `μ` at temperature `t` [K].
+    #[inline]
+    pub fn mu(&self, t: f64) -> f64 {
+        match self {
+            Viscosity::Sutherland => sutherland_viscosity(t),
+            Viscosity::Constant(mu) => *mu,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
