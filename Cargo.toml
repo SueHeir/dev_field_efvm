@@ -15,7 +15,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/SueHeir/test-cfd"
+repository = "https://github.com/SueHeir/dev_field_efvm"
 
 # FIELD substrate + GRASS framework, sibling checkouts. Mirrors how DIRT path-deps SOIL.
 [workspace.dependencies]
@@ -57,10 +57,10 @@ cfd_output = { path = "crates/cfd_output" }
 # dead-on-this-fleet github.com URLs to Gitea. Re-point to a `master` tag/rev
 # once SPH_temp PR (auto/sph-cfd-plume-surface) merges. (A `rev` pin, not a
 # `branch`, sidesteps a cargo 1.96 feature-resolver panic on git branch sources.)
-mud_core = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
-mud_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
-mud_constitutive = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
-mud_physics = { git = "ssh://git@192.168.0.170:2222/SueHeir/SPH_temp.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_core = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_constitutive = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
+mud_physics = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "8b681d1e7b1388c5f56dd9831c2c54cce0c0c12f" }
 
 # SOIL and its crates pin GRASS by git URL; redirect that source to the same
 # sibling path checkout the rest of this workspace already builds against, so the
