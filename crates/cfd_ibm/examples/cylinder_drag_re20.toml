@@ -5,13 +5,28 @@
 #   cargo run --release -p cfd_ibm --example cylinder_drag_validation -- \
 #       crates/cfd_ibm/examples/cylinder_drag_re20.toml
 #
-# Grid convergence of the marker-integrated drag toward the benchmark
-# (this is a *first-order* ghost-cell IBM, so the drag converges ~linearly):
-#     D/dx = 10 (220x41):  c_D = 5.149  (-7.7 %)
-#     D/dx = 15 (330x61):  c_D = 5.429  (-2.7 %)
-#     D/dx = 20 (440x82):  c_D = 5.595  (+0.28 %)   <- this case
-# The 5 % tolerance below is set from that convergence behaviour (comfortably met
-# at D/dx = 20), NOT tuned to pass. Drop nx/ny to 220/41 for a ~15 s smoke test.
+# Re = 20 is a STEADY case (a cylinder wake first sheds near Re ~ 46-50, higher
+# still for this channel blockage), so the drag MUST settle to a fixed plateau —
+# a transient value that merely passes through the reference does not validate.
+# In a compressible solver run at low Mach the reflective velocity-inlet /
+# pressure-outlet pair otherwise traps acoustic energy and Cd(t) never plateaus;
+# the downstream [sponge] absorbing layer fixes that (see the example docstring).
+# The [validation] block therefore gates on THREE things: Cd accuracy, a steady
+# plateau (small peak-to-peak of Cd over the averaging window), and Cl.
+#
+# Grid convergence of the STEADY marker-integrated drag toward the benchmark
+# (measured with the sponge on, averaged over a converged window; this is a
+# *first-order* ghost-cell IBM, so the drag converges ~linearly and brackets the
+# benchmark between D/dx = 15 and 20):
+#     D/dx = 10 (220x41):  c_D = 5.126  (-8.1 %)   c_L = 0.0138
+#     D/dx = 15 (330x61):  c_D = 5.466  (-2.0 %)   c_L = 0.089  (see note)
+#     D/dx = 20 (440x82):  c_D = 5.631  (+0.9 %)   c_L = 0.0124   <- this case
+# NOTE: c_L is a small quantity (~0.01) set by the top/bottom asymmetry of the
+# staircased surface and is therefore only meaningful at grid-aligned resolutions
+# where the D-cell-wide cylinder and its centre land on cell lines (D/dx = 10, 20);
+# the odd 15-cell diameter mis-aligns the staircase and injects spurious lift.
+# The 5 % Cd tolerance is set from the convergence behaviour above (comfortably
+# met at D/dx = 20), NOT tuned to pass.
 
 [grid]
 # Channel 2.2 x 0.41 (the DFG geometry), one cell thick in z (2-D). D/dx = 20.
@@ -38,11 +53,23 @@ channel_height = 0.41
 cfl = 0.3
 muscl = false
 
+[sponge]
+# Downstream absorbing (fringe) layer over x in [x_start, 2.2] that relaxes the
+# solution toward the undisturbed parabolic channel flow, so outgoing acoustic and
+# vortical fluctuations leave the domain instead of reflecting off the pressure
+# outlet and re-exciting a channel resonance. It sits ~12 D downstream of the
+# cylinder (wake fully recovered by then at Re = 20), so it does not touch the drag.
+x_start = 1.4       # zone spans the last ~0.8 m of the 2.2 m channel
+sigma = 1.0e4       # relaxation rate [1/s]; strength ramps quadratically to the outlet
+
 [run]
-steps = 22000       # RK substeps to reach steady state (~4.5 min at D/dx = 20)
-print_every = 2000
-average_frac = 0.2  # time-average c_D over the last 20 % (steady window)
+steps = 44000       # RK substeps: reaches a flat plateau by ~step 20000 at D/dx = 20
+print_every = 4000
+average_frac = 0.1  # average c_D / c_L over the last 10 % (deep in the plateau)
 
 [validation]
 cd_ref = 5.5795     # Schäfer & Turek 1996, DFG 2D-1 (consensus ~5.57-5.59)
-tol_rel = 0.05
+cl_ref = 0.0106     # DFG 2D-1 benchmark lift coefficient
+tol_rel = 0.05      # relative Cd tolerance (from grid convergence, not tuned)
+cl_tol_abs = 0.01   # absolute Cl tolerance (first-order IBM staircase-lift band)
+steady_ptp_tol = 0.02  # max Cd peak-to-peak over the window: the anti-transient gate
