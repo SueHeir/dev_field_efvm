@@ -42,7 +42,7 @@ pub fn write_vtk_to<W: Write, M: StructuredMesh>(
     let [ni, nj, nk] = mesh.dims();
 
     writeln!(w, "# vtk DataFile Version 3.0")?;
-    writeln!(w, "test-cfd output")?;
+    writeln!(w, "dev_field_efvm output")?;
     writeln!(w, "ASCII")?;
     writeln!(w, "DATASET RECTILINEAR_GRID")?;
     writeln!(w, "DIMENSIONS {} {} {}", ni + 1, nj + 1, nk + 1)?;
