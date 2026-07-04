@@ -26,6 +26,9 @@ use grass_scheduler::{Res, ResMut};
 mod cutcell;
 pub use cutcell::{Body, CutCellMetrics, Sphere};
 
+pub mod sphere;
+pub use sphere::{SphereBodies, SphereBody, SphereIbmPlugin, SphereMarkerCfg};
+
 pub mod coupling;
 pub use coupling::{
     beta_gidaspow, cd_clift_grace_weber, cd_schiller_naumann, drag_force_from_beta,
@@ -401,6 +404,11 @@ pub struct IbmMarker {
     pub position: Vec3,
     pub normal: Vec3,
     pub area: f64,
+    /// Rigid-body surface velocity at this marker (`0` for a static body). The
+    /// viscous traction uses the *slip* `u_fluid − wall_velocity`, so a moving
+    /// wall (settling/tumbling sphere) is handled correctly; a fixed body reduces
+    /// to the plain `u_fluid` gradient the cylinder-drag case uses.
+    pub wall_velocity: Vec3,
 }
 
 /// All surface markers across all bodies, rebuilt per geometry update.
@@ -454,16 +462,103 @@ pub fn compute_marker_loadings<M: StructuredMesh>(
         if ![img.p, img.t, img.u, img.v, img.w].iter().all(|x| x.is_finite()) {
             continue;
         }
-        let us = [img.u, img.v, img.w];
+        // Slip velocity relative to the (possibly moving) wall.
+        let us = [
+            img.u - m.wall_velocity[0],
+            img.v - m.wall_velocity[1],
+            img.w - m.wall_velocity[2],
+        ];
         let udotn = us[0] * m.normal[0] + us[1] * m.normal[1] + us[2] * m.normal[2];
         let mu = visc.mu(img.t);
         for d in 0..3 {
-            let ut = us[d] - udotn * m.normal[d]; // tangential velocity component
+            let ut = us[d] - udotn * m.normal[d]; // tangential slip component
             fp[d] += -img.p * m.normal[d] * m.area;
             fv[d] += mu * ut / sample_offset * m.area;
         }
     }
     (fp, fv)
+}
+
+/// Net fluid load on one immersed body from the marker integral: pressure force,
+/// viscous force, and the torque about the body center (`Σ r×traction`). The
+/// [`total`](BodyLoad::total) force is the dynamic load the resolved FSI seam
+/// hands to the DEM particle (the reduced-gravity buoyant weight is added by the
+/// particle integrator, since a quiescent gas here carries no hydrostatic field).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BodyLoad {
+    pub pressure: Vec3,
+    pub viscous: Vec3,
+    pub torque: Vec3,
+}
+
+impl BodyLoad {
+    pub fn total(&self) -> Vec3 {
+        [
+            self.pressure[0] + self.viscous[0],
+            self.pressure[1] + self.viscous[1],
+            self.pressure[2] + self.viscous[2],
+        ]
+    }
+}
+
+/// Per-body marker traction integral: like [`compute_marker_loadings`] but force
+/// **and torque** are accumulated separately per `body_id`, returning `loads[b]`
+/// for `b` in `0..centers.len()`. Torque is taken about `centers[b]`. This is the
+/// FSI handoff for a multi-body run (drafting-kissing-tumbling): each immersed
+/// particle needs its *own* net fluid load and torque, not the domain sum.
+pub fn compute_marker_loadings_per_body<M: StructuredMesh>(
+    mesh: &M,
+    state: &CfdState,
+    mask: &SolidMask,
+    eos: &dyn Eos,
+    markers: &IbmMarkers,
+    sample_offset: f64,
+    visc: Viscosity,
+    centers: &[Vec3],
+) -> Vec<BodyLoad> {
+    let n_bodies = centers.len();
+    let mut out = vec![BodyLoad::default(); n_bodies];
+    for m in &markers.markers {
+        let b = m.body_id as usize;
+        if b >= n_bodies {
+            continue;
+        }
+        let sp = [
+            m.position[0] + sample_offset * m.normal[0],
+            m.position[1] + sample_offset * m.normal[1],
+            m.position[2] + sample_offset * m.normal[2],
+        ];
+        let Some(img) = sample_trilinear(mesh, state, mask, eos, sp) else {
+            continue;
+        };
+        if ![img.p, img.t, img.u, img.v, img.w].iter().all(|x| x.is_finite()) {
+            continue;
+        }
+        let us = [
+            img.u - m.wall_velocity[0],
+            img.v - m.wall_velocity[1],
+            img.w - m.wall_velocity[2],
+        ];
+        let udotn = us[0] * m.normal[0] + us[1] * m.normal[1] + us[2] * m.normal[2];
+        let mu = visc.mu(img.t);
+        // Traction·area at this marker (force it contributes to the body).
+        let mut df = [0.0; 3];
+        for d in 0..3 {
+            let ut = us[d] - udotn * m.normal[d];
+            let fp_d = -img.p * m.normal[d] * m.area;
+            let fv_d = mu * ut / sample_offset * m.area;
+            out[b].pressure[d] += fp_d;
+            out[b].viscous[d] += fv_d;
+            df[d] = fp_d + fv_d;
+        }
+        // Torque about the body center: r × df, r = marker position − center.
+        let c = centers[b];
+        let r = [m.position[0] - c[0], m.position[1] - c[1], m.position[2] - c[2]];
+        out[b].torque[0] += r[1] * df[2] - r[2] * df[1];
+        out[b].torque[1] += r[2] * df[0] - r[0] * df[2];
+        out[b].torque[2] += r[0] * df[1] - r[1] * df[0];
+    }
+    out
 }
 
 /// `Setup`: place markers uniformly around each cylinder (`n_theta × n_z`), with
@@ -495,6 +590,7 @@ fn compute_cylinder_markers<M: StructuredMesh>(
                     position: [cy.center_xy[0] + cy.radius * nx, cy.center_xy[1] + cy.radius * ny, z],
                     normal: [nx, ny, 0.0],
                     area,
+                    wall_velocity: [0.0; 3], // static analytic cylinder
                 });
             }
         }
