@@ -12,3 +12,18 @@ grass_app.workspace = true
 grass_scheduler.workspace = true
 cfd_state.workspace = true
 cfd_eos.workspace = true
+
+# The `cylinder_drag_validation` example wires a full solver (flux + viscous +
+# integrator + boundaries) around the IBM plugins, and reads its case from a TOML
+# file. These are the assembly crates the example needs — the physics-agnostic
+# solver core plus IO — kept as dev-deps so the library itself stays lean and
+# p4est-free (unlike the top `test_cfd` crate).
+[dev-dependencies]
+cfd_solver.workspace = true
+cfd_boundary.workspace = true
+grass_io.workspace = true
+serde.workspace = true
+
+[[example]]
+name = "cylinder_drag_validation"
+path = "examples/cylinder_drag_validation.rs"

@@ -94,11 +94,15 @@ dependencies = [
 name = "cfd_ibm"
 version = "0.1.0"
 dependencies = [
+ "cfd_boundary",
  "cfd_eos",
+ "cfd_solver",
  "cfd_state",
  "field_core",
  "grass_app",
+ "grass_io",
  "grass_scheduler",
+ "serde",
 ]
 
 [[package]]

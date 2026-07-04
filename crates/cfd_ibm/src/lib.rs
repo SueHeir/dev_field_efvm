@@ -17,7 +17,7 @@
 //! Surface-marker drag integration (toy-cfd's `compute_*_wall_loadings`) is the
 //! remaining diagnostic layer.
 
-use cfd_eos::{sutherland_viscosity, Eos, EosResource};
+use cfd_eos::{Eos, EosResource, Viscosity};
 use cfd_state::{CfdState, ConsVar, PrimVar, SolidMask};
 use field_core::{register_field_data, FieldRegistry, MeshScheduleSet, StructuredMesh, UniformMesh, Vec3};
 use grass_app::prelude::*;
@@ -301,6 +301,7 @@ pub fn compute_wall_forces<M: StructuredMesh>(
     state: &CfdState,
     mask: &SolidMask,
     eos: &dyn Eos,
+    visc: Viscosity,
 ) -> (Vec3, Vec3) {
     let mut f_p = [0.0; 3];
     let mut f_v = [0.0; 3];
@@ -336,7 +337,7 @@ pub fn compute_wall_forces<M: StructuredMesh>(
                     f_p[dim] -= eos.pressure(u) * sign * face_area[dim];
                     // Viscous shear from no-slip gradient ≈ u_tang / (½ dn).
                     let prim = eos.cons_to_prim(u);
-                    let mu = sutherland_viscosity(prim.t);
+                    let mu = visc.mu(prim.t);
                     let vel = [prim.u, prim.v, prim.w];
                     for td in 0..3 {
                         if td != dim {
@@ -373,11 +374,12 @@ fn wall_force_system<M: StructuredMesh>(
     mesh: Res<M>,
     reg: Res<FieldRegistry>,
     eos: Res<EosResource>,
+    visc: Res<Viscosity>,
     mut force: ResMut<WallForce>,
 ) {
     let mask = reg.expect::<SolidMask>("SolidMask not registered");
     let state = reg.expect::<CfdState>("CfdState not registered");
-    let (p, v) = compute_wall_forces(&*mesh, &state, &mask, &*eos.0);
+    let (p, v) = compute_wall_forces(&*mesh, &state, &mask, &*eos.0, *visc);
     force.pressure = p;
     force.viscous = v;
 }
@@ -429,6 +431,7 @@ pub fn compute_marker_loadings<M: StructuredMesh>(
     eos: &dyn Eos,
     markers: &IbmMarkers,
     sample_offset: f64,
+    visc: Viscosity,
 ) -> (Vec3, Vec3) {
     let mut fp = [0.0; 3];
     let mut fv = [0.0; 3];
@@ -446,7 +449,7 @@ pub fn compute_marker_loadings<M: StructuredMesh>(
         }
         let us = [img.u, img.v, img.w];
         let udotn = us[0] * m.normal[0] + us[1] * m.normal[1] + us[2] * m.normal[2];
-        let mu = sutherland_viscosity(img.t);
+        let mu = visc.mu(img.t);
         for d in 0..3 {
             let ut = us[d] - udotn * m.normal[d]; // tangential velocity component
             fp[d] += -img.p * m.normal[d] * m.area;
@@ -497,12 +500,13 @@ fn marker_force_system<M: StructuredMesh>(
     reg: Res<FieldRegistry>,
     eos: Res<EosResource>,
     markers: Res<IbmMarkers>,
+    visc: Res<Viscosity>,
     mut force: ResMut<MarkerForce>,
 ) {
     let mask = reg.expect::<SolidMask>("SolidMask not registered");
     let state = reg.expect::<CfdState>("CfdState not registered");
     let dx = mesh.spacing(0, 0);
-    let (p, v) = compute_marker_loadings(&*mesh, &state, &mask, &*eos.0, &markers, dx);
+    let (p, v) = compute_marker_loadings(&*mesh, &state, &mask, &*eos.0, &markers, dx, *visc);
     force.pressure = p;
     force.viscous = v;
 }

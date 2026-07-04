@@ -10,7 +10,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use cfd_eos::{sutherland_viscosity, thermal_conductivity, Eos, EosResource, IdealGas};
+use cfd_eos::{thermal_conductivity, Eos, EosResource, IdealGas, Viscosity};
 use cfd_riemann::{FluxScheme, RiemannFlux};
 use cfd_state::{CfdState, ConsVar, PrimVar, SolidMask};
 use field_core::{
@@ -408,8 +408,14 @@ fn d2_pre(um: f64, u0: f64, up: f64, inv_hm: f64, inv_hp: f64, inv_hs2: f64) -> 
 /// [`SolidMask`] is registered, solid neighbours contribute no-slip (`u=0`) and
 /// adiabatic (`T=T_self`) wall values to the stencil, and solid cells are skipped.
 /// Transport is ideal-gas + Sutherland.
-pub fn viscous_system<M: StructuredMesh>(mesh: Res<M>, reg: Res<FieldRegistry>, gas: Res<IdealGas>) {
+pub fn viscous_system<M: StructuredMesh>(
+    mesh: Res<M>,
+    reg: Res<FieldRegistry>,
+    gas: Res<IdealGas>,
+    visc: Res<Viscosity>,
+) {
     let gas = *gas;
+    let visc = *visc;
     let mask = reg.get::<SolidMask>(); // None when no IBM is registered
     let mut state = reg.expect_mut::<CfdState>("CfdState not registered");
 
@@ -464,7 +470,7 @@ pub fn viscous_system<M: StructuredMesh>(mesh: Res<M>, reg: Res<FieldRegistry>, 
                     continue; // solid cells never receive viscous RHS
                 }
                 let ps = prim[c];
-                let mu = sutherland_viscosity(ps.t);
+                let mu = visc.mu(ps.t);
                 let kappa = thermal_conductivity(mu, gas.gamma, gas.r_gas);
 
                 let xp = nb(mesh.idx_raw(ir + 1, jr, kr), ps.t);
@@ -565,6 +571,7 @@ pub fn cfl_system<M: StructuredMesh>(
     eos: Res<EosResource>,
     config: Res<SolverConfig>,
     comm: Res<CommResource>,
+    visc: Res<Viscosity>,
     mut sstate: ResMut<SolverState>,
 ) {
     if sstate.rk_stage != RkStage::First {
@@ -596,7 +603,7 @@ pub fn cfl_system<M: StructuredMesh>(
                     + (vel[2].abs() + a) / dz;
                 if config.viscous {
                     // Viscous spectral radius 2ν(1/dx²+1/dy²+1/dz²), ν = μ/ρ.
-                    let nu = sutherland_viscosity(eos.cons_to_prim(u).t) / u.rho;
+                    let nu = visc.mu(eos.cons_to_prim(u).t) / u.rho;
                     lambda += 2.0 * nu * (1.0 / (dx * dx) + 1.0 / (dy * dy) + 1.0 / (dz * dz));
                 }
                 lambda_max = lambda_max.max(lambda);
@@ -661,6 +668,10 @@ impl Plugin for IdealGasPlugin {
         let gas = IdealGas::air();
         app.add_resource(gas); // concrete, for the viscous transport coefficients
         app.add_resource(EosResource(Arc::new(gas))); // dyn, for flux / boundary
+        // Default transport = air's Sutherland μ(T). A case that targets a chosen
+        // Reynolds number overrides this with `Viscosity::Constant(μ)` after adding
+        // the gas plugin (add_resource replaces by type).
+        app.add_resource(Viscosity::default());
     }
     fn provides(&self) -> Vec<&str> {
         vec!["eos"]
