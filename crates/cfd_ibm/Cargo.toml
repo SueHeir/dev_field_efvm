@@ -30,6 +30,15 @@ serde.workspace = true
 grass_multi.workspace = true
 soil_core.workspace = true
 soil_verlet.workspace = true
+# The `cfd_ibm_fiber` example builds its immersed body as a BPM bonded-sphere
+# chain via DIRT's bond model (dirt_bond/dirt_atom on the SOIL substrate), so the
+# fiber crossing the DEM→CFD seam is a genuine bonded clump, not an ad-hoc line of
+# spheres. Dev-deps only: the library core stays DIRT-free (only this example
+# consumes it). DIRT pins GRASS/SOIL by the same Gitea URLs the workspace already
+# `[patch]`es to the sibling path checkouts, so there is one App/Atom type across
+# the coupled sub-Apps.
+dirt_bond = { git = "ssh://git@192.168.0.170:2222/SueHeir/dirt.git", rev = "b4a23e4606a1fa8d4dc9f1196ca7ac6b7c3155f0", default-features = false, features = ["precision-double"] }
+dirt_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/dirt.git", rev = "b4a23e4606a1fa8d4dc9f1196ca7ac6b7c3155f0", default-features = false, features = ["precision-double"] }
 # The `plume_surface` example additionally drives the MUD granular-SPH (μ(I)
 # continuum) code as the Lagrangian sub-App, so the granular phase is a real
 # elasto-viscoplastic continuum rather than discrete DEM grains. Same seam.
@@ -69,3 +78,7 @@ path = "examples/sphere_drag_validation.rs"
 [[example]]
 name = "dkt_sedimentation"
 path = "examples/dkt_sedimentation.rs"
+
+[[example]]
+name = "cfd_ibm_fiber"
+path = "examples/cfd_ibm_fiber.rs"
