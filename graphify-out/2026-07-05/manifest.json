@@ -1,0 +1,187 @@
+{
+  "crates/cfd_boundary/src/lib.rs": {
+    "mtime": 1783094903.8274703,
+    "ast_hash": "5ed30f2712b3c9b3aa9b069521bcef5a",
+    "semantic_hash": "5ed30f2712b3c9b3aa9b069521bcef5a"
+  },
+  "crates/cfd_eos/src/lib.rs": {
+    "mtime": 1783230853.397787,
+    "ast_hash": "5727278d204f1196c63542e89f7dccf9",
+    "semantic_hash": "5727278d204f1196c63542e89f7dccf9"
+  },
+  "crates/cfd_ibm/examples/cylinder_drag_validation.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "ac376ca25c5d33ee29cd74f3f09d29a4",
+    "semantic_hash": "ac376ca25c5d33ee29cd74f3f09d29a4"
+  },
+  "crates/cfd_ibm/examples/dkt_sedimentation.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "308d4612fb2f1cd7b2c64c51c2871f4d",
+    "semantic_hash": "308d4612fb2f1cd7b2c64c51c2871f4d"
+  },
+  "crates/cfd_ibm/examples/fixed_bed_ergun.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "9f1746b8f2132158353bd8926ed2418d",
+    "semantic_hash": "9f1746b8f2132158353bd8926ed2418d"
+  },
+  "crates/cfd_ibm/examples/fluidized_bed_umf.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "8bcb9d22090c4ba9bf3b678fd67a3719",
+    "semantic_hash": "8bcb9d22090c4ba9bf3b678fd67a3719"
+  },
+  "crates/cfd_ibm/examples/plume_surface.rs": {
+    "mtime": 1783230853.397787,
+    "ast_hash": "b151d0aa96c9e75086e3ad7436768e16",
+    "semantic_hash": "b151d0aa96c9e75086e3ad7436768e16"
+  },
+  "crates/cfd_ibm/examples/settling_sphere.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "f1a43f9dce0cbcfcd5cca41c18b306dd",
+    "semantic_hash": "f1a43f9dce0cbcfcd5cca41c18b306dd"
+  },
+  "crates/cfd_ibm/examples/sphere_drag_resolved.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "353f3f0282e591bc327a2f5b6f3b1334",
+    "semantic_hash": "353f3f0282e591bc327a2f5b6f3b1334"
+  },
+  "crates/cfd_ibm/examples/sphere_drag_validation.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "f61d3dc60ed711f942d80ae6372f9444",
+    "semantic_hash": "f61d3dc60ed711f942d80ae6372f9444"
+  },
+  "crates/cfd_ibm/src/coupling.rs": {
+    "mtime": 1783196471.461999,
+    "ast_hash": "c0a102fba949ebeea76a7db9b3c9ec36",
+    "semantic_hash": "c0a102fba949ebeea76a7db9b3c9ec36"
+  },
+  "crates/cfd_ibm/src/cutcell.rs": {
+    "mtime": 1783094903.8276281,
+    "ast_hash": "32f86f1eda8ac7ee0f9ea53281423bc9",
+    "semantic_hash": "32f86f1eda8ac7ee0f9ea53281423bc9"
+  },
+  "crates/cfd_ibm/src/lib.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "60d36530585d29ff13d62386a1179117",
+    "semantic_hash": "60d36530585d29ff13d62386a1179117"
+  },
+  "crates/cfd_ibm/src/sphere.rs": {
+    "mtime": 1783196471.4628766,
+    "ast_hash": "55af1efde55d2b4b267f610e3b34db5a",
+    "semantic_hash": "55af1efde55d2b4b267f610e3b34db5a"
+  },
+  "crates/cfd_output/src/lib.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "f03b4e4e289e6c46f306897a81da0ee4",
+    "semantic_hash": "f03b4e4e289e6c46f306897a81da0ee4"
+  },
+  "crates/cfd_riemann/src/lib.rs": {
+    "mtime": 1783094903.8278942,
+    "ast_hash": "93a367443883f30b4928455486a214f1",
+    "semantic_hash": "93a367443883f30b4928455486a214f1"
+  },
+  "crates/cfd_solver/examples/isentropic_vortex.rs": {
+    "mtime": 1783196471.4628766,
+    "ast_hash": "3e6f22d4f950b5f3069f530c368fa76b",
+    "semantic_hash": "3e6f22d4f950b5f3069f530c368fa76b"
+  },
+  "crates/cfd_solver/src/integrate.rs": {
+    "mtime": 1783094903.828037,
+    "ast_hash": "e668b19fd4c8fd7f4ec90b49f1297b08",
+    "semantic_hash": "e668b19fd4c8fd7f4ec90b49f1297b08"
+  },
+  "crates/cfd_solver/src/lib.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "ac1063fb5fc7c3168efdd8c10806de4e",
+    "semantic_hash": "ac1063fb5fc7c3168efdd8c10806de4e"
+  },
+  "crates/cfd_solver/src/tests.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "c82c820f67962c056fa0b166830426e2",
+    "semantic_hash": "c82c820f67962c056fa0b166830426e2"
+  },
+  "crates/cfd_solver/tests/isentropic_vortex_convergence.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "108a2b77cc7fab1d70cc52f1d2b2803a",
+    "semantic_hash": "108a2b77cc7fab1d70cc52f1d2b2803a"
+  },
+  "crates/cfd_state/src/lib.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "af134e39d519f9a0a4ef2fcdd25d4312",
+    "semantic_hash": "af134e39d519f9a0a4ef2fcdd25d4312"
+  },
+  "crates/test_cfd/examples/config_driven.rs": {
+    "mtime": 1783094903.828388,
+    "ast_hash": "e053642885a5b7565d61a45dbde83031",
+    "semantic_hash": "e053642885a5b7565d61a45dbde83031"
+  },
+  "crates/test_cfd/examples/p4est_multirank.rs": {
+    "mtime": 1783094903.8284242,
+    "ast_hash": "29a3d628367ca38f9a2f6242100b16ae",
+    "semantic_hash": "29a3d628367ca38f9a2f6242100b16ae"
+  },
+  "crates/test_cfd/examples/sod_shock_tube.rs": {
+    "mtime": 1783094903.8284242,
+    "ast_hash": "f43aa37621ed5128bfb01d59e1a18c69",
+    "semantic_hash": "f43aa37621ed5128bfb01d59e1a18c69"
+  },
+  "crates/test_cfd/src/lib.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "7ccdf909cc0aa096974f0c18e1859411",
+    "semantic_hash": "7ccdf909cc0aa096974f0c18e1859411"
+  },
+  "crates/test_cfd/tests/p4est_cutcell.rs": {
+    "mtime": 1783094903.8284242,
+    "ast_hash": "c529475c259e9b2e8cba049b03f05fde",
+    "semantic_hash": "c529475c259e9b2e8cba049b03f05fde"
+  },
+  "crates/test_cfd/tests/p4est_euler.rs": {
+    "mtime": 1783094903.828662,
+    "ast_hash": "f9a611c25fa1542803e348cfe3b9153f",
+    "semantic_hash": "f9a611c25fa1542803e348cfe3b9153f"
+  },
+  "crates/test_cfd/tests/p4est_muscl.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "28141e1312a409bbd6382ed2bd75d374",
+    "semantic_hash": "28141e1312a409bbd6382ed2bd75d374"
+  },
+  "crates/test_cfd/tests/p4est_regrid.rs": {
+    "mtime": 1783094903.828662,
+    "ast_hash": "2a9c7dbb6f6b43e542497eaeebfafa7e",
+    "semantic_hash": "2a9c7dbb6f6b43e542497eaeebfafa7e"
+  },
+  "PLAN.md": {
+    "mtime": 1783230853.397787,
+    "ast_hash": "8749e91747b5d45ce9c0f37af0326d9f",
+    "semantic_hash": "8749e91747b5d45ce9c0f37af0326d9f"
+  },
+  "crates/cfd_solver/tests/isentropic_vortex_muscl_convergence.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "3e9af6a11bb1e60df9cb80aef3ad76ad",
+    "semantic_hash": "3e9af6a11bb1e60df9cb80aef3ad76ad"
+  },
+  "crates/cfd_solver/tests/poiseuille_channel_validation.rs": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "70525be5df3ac126e57e48edfb582c72",
+    "semantic_hash": "70525be5df3ac126e57e48edfb582c72"
+  },
+  "DISCLAIMER.md": {
+    "mtime": 1783230853.400967,
+    "ast_hash": "ea9f5980681e40aa43da8799f97ce550",
+    "semantic_hash": "ea9f5980681e40aa43da8799f97ce550"
+  },
+  "PLAN-dev_field_efvm.md": {
+    "mtime": 1783230853.397787,
+    "ast_hash": "88b3f719d50748c264362a98c7922512",
+    "semantic_hash": "88b3f719d50748c264362a98c7922512"
+  },
+  "docs/reference/conserved-variables.md": {
+    "mtime": 1783230853.4000545,
+    "ast_hash": "caa9e0461f9e930083511fe20d43decf",
+    "semantic_hash": "caa9e0461f9e930083511fe20d43decf"
+  },
+  "docs/README.md": {
+    "mtime": 1783230853.398787,
+    "ast_hash": "4054e041fe2c2478fa784cae167222bb",
+    "semantic_hash": "4054e041fe2c2478fa784cae167222bb"
+  }
+}

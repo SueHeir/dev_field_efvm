@@ -24,12 +24,8 @@ kind = "cargo-test"
 command = "cargo test -p cfd_solver --test poiseuille_channel_validation -- --nocapture"
 reference = "Analytic plane-Poiseuille velocity profile."
 
-[[validation]]
-id = "settling_sphere_stokes"
-mode = "smoke"
-kind = "cargo-example"
-command = "cargo run --release -p cfd_ibm --example settling_sphere -- crates/cfd_ibm/examples/settling_sphere_stokes.toml"
-reference = "Stokes terminal velocity in the low-Reynolds-number limit (IBM)."
+# NOTE: settling_sphere_stokes was a DEM<->CFD coupling gate; it moved with the
+# other couplings to SueHeir/dev_couple_dem_cfd and is validated there.
 
 [[validation]]
 id = "cylinder_drag_re20"
