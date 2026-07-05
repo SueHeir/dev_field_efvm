@@ -1,0 +1,22 @@
+[set]
+name = "dev_field_efvm-validation"
+tier = "dev_field_efvm"
+description = "Minimal skeptic-facing gates for the Eulerian FVM/IBM CFD tier."
+
+[[validation]]
+id = "isentropic_vortex_convergence"
+kind = "cargo-test"
+command = "cargo test -p cfd_solver --test isentropic_vortex_convergence -- --nocapture"
+reference = "Manufactured isentropic vortex convergence; test asserts observed order and finest-grid error."
+
+[[validation]]
+id = "poiseuille_channel"
+kind = "cargo-test"
+command = "cargo test -p cfd_solver --test poiseuille_channel_validation -- --nocapture"
+reference = "Analytic plane-Poiseuille velocity profile."
+
+[[validation]]
+id = "settling_sphere_stokes"
+kind = "cargo-example"
+command = "cargo run --release -p cfd_ibm --example settling_sphere -- crates/cfd_ibm/examples/settling_sphere_stokes.toml"
+reference = "Stokes terminal velocity in the low-Reynolds-number limit."

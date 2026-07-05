@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  test:
+    name: build + test + validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev_field_efvm
+        uses: actions/checkout@v4
+        with:
+          path: dev_field_efvm
+
+      - name: Checkout field sibling
+        uses: actions/checkout@v4
+        with:
+          repository: SueHeir/field
+          path: field
+
+      - name: Checkout grass sibling
+        uses: actions/checkout@v4
+        with:
+          repository: SueHeir/grass
+          path: grass
+
+      - name: Checkout soil sibling
+        uses: actions/checkout@v4
+        with:
+          repository: SueHeir/soil
+          path: soil
+
+      - name: Install OpenMPI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenmpi-dev openmpi-bin
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: dev_field_efvm -> target
+
+      - name: Build workspace
+        working-directory: dev_field_efvm
+        run: cargo build -p cfd_state -p cfd_eos -p cfd_riemann -p cfd_solver -p cfd_boundary -p cfd_ibm -p cfd_output --all-targets
+
+      - name: Test workspace
+        working-directory: dev_field_efvm
+        run: cargo test -p cfd_state -p cfd_eos -p cfd_riemann -p cfd_solver -p cfd_boundary -p cfd_ibm -p cfd_output
+
+      - name: Run validation script
+        working-directory: dev_field_efvm
+        run: validation/run.sh
