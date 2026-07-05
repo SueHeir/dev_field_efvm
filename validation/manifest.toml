@@ -1,0 +1,39 @@
+[set]
+name = "dev_field_efvm-validation"
+tier = "dev_field_efvm"
+description = "Skeptic-facing validation gates for the Eulerian FVM/IBM CFD tier. Mirrors the maintained set documented in README.md. `mode`: smoke = fast, run every push/PR; full = heavy wait-for-plateau, run on schedule / on demand via `run.sh full`."
+
+[[validation]]
+id = "isentropic_vortex_convergence"
+mode = "smoke"
+kind = "cargo-test"
+command = "cargo test -p cfd_solver --test isentropic_vortex_convergence -- --nocapture"
+reference = "Manufactured isentropic (Shu) vortex; first-order HLLC/Godunov path. Asserts observed order and finest-grid density error."
+
+[[validation]]
+id = "isentropic_vortex_muscl_convergence"
+mode = "smoke"
+kind = "cargo-test"
+command = "cargo test -p cfd_solver --test isentropic_vortex_muscl_convergence -- --nocapture"
+reference = "Manufactured isentropic (Shu) vortex; MUSCL path. Asserts fitted order >= 1.8 (design 2.0)."
+
+[[validation]]
+id = "poiseuille_channel"
+mode = "smoke"
+kind = "cargo-test"
+command = "cargo test -p cfd_solver --test poiseuille_channel_validation -- --nocapture"
+reference = "Analytic plane-Poiseuille velocity profile."
+
+[[validation]]
+id = "settling_sphere_stokes"
+mode = "smoke"
+kind = "cargo-example"
+command = "cargo run --release -p cfd_ibm --example settling_sphere -- crates/cfd_ibm/examples/settling_sphere_stokes.toml"
+reference = "Stokes terminal velocity in the low-Reynolds-number limit (IBM)."
+
+[[validation]]
+id = "cylinder_drag_re20"
+mode = "full"
+kind = "cargo-example"
+command = "cargo run --release -p cfd_ibm --example cylinder_drag_validation -- crates/cfd_ibm/examples/cylinder_drag_re20.toml"
+reference = "Schaefer-Turek DFG 2D-1 flow-around-a-cylinder, Re=20; ghost-cell IBM marker-integrated drag vs Cd = 5.5795, plus steady-plateau and lift gates. Heavy (waits for the drag plateau) — full mode only."
