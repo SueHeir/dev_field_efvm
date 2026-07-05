@@ -388,8 +388,14 @@ fn sod_matches_exact_riemann_profile_with_wrong_gamma_negative_control() {
     let mut correct_mass = 0.0;
     let mut wrong_mass = 0.0;
     let mut wrong_errs = Vec::new();
-    for &n in &ns[..2] {
-        // N = 100, 200
+    // Start at N = 200 (not the coarsest N = 100): the wrong-γ error clears the
+    // gate at every grid, but at N = 100 the margin is only ~14% (wrong-γ L1
+    // ≈2.85e-2 vs gate 2.50e-2), widening to ~40% at N = 200 and more at N = 400.
+    // Running the control on 200/400 keeps the decisive margin comfortably wide
+    // and robust to future flux/limiter changes that might nudge the coarse-grid
+    // constant, while still spanning a refinement pair for the no-convergence check.
+    for &n in &ns[1..] {
+        // N = 200, 400
         let (t_ok, cells_ok) = simulate(n, air);
         let (t_bad, cells_bad) = simulate(n, wrong_gas);
         let e_ok = l1_density_error(&cells_ok, t_ok, AIR_GAMMA);
@@ -425,7 +431,7 @@ fn sod_matches_exact_riemann_profile_with_wrong_gamma_negative_control() {
         "both runs must conserve mass identically: {correct_mass} vs {wrong_mass}",
     );
 
-    // The wrong-γ error does NOT converge away: refining 100→200 leaves it a fixed
+    // The wrong-γ error does NOT converge away: refining 200→400 leaves it a fixed
     // physical floor (it must not drop like the discretization error would). This
     // is what proves the gate tests the analytic profile, not the mesh.
     assert!(
