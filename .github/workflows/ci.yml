@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Nightly full validation (adds the heavy wait-for-plateau cylinder-drag gate).
+    - cron: "0 6 * * *"
 
 env:
   CARGO_TERM_COLOR: always
@@ -57,6 +60,15 @@ jobs:
         working-directory: dev_field_efvm
         run: cargo test -p cfd_state -p cfd_eos -p cfd_riemann -p cfd_solver -p cfd_boundary -p cfd_ibm -p cfd_output
 
-      - name: Run validation script
+      # Every push/PR runs the fast smoke gates; the nightly `schedule` run (and
+      # a manual workflow_dispatch) runs `full`, which adds the heavy cylinder
+      # drag gate. This keeps every documented validation under automated
+      # coverage without paying the multi-minute plateau cost on every push.
+      - name: Run validation (smoke on push/PR, full on schedule/dispatch)
         working-directory: dev_field_efvm
-        run: validation/run.sh
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            validation/run.sh full
+          else
+            validation/run.sh smoke
+          fi
