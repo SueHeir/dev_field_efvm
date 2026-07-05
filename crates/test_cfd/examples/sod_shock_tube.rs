@@ -1,13 +1,19 @@
-//! The classic Sod shock tube, run end-to-end on the FIELD substrate and printed
-//! as a 1-D density/velocity/pressure profile.
+//! DEMO (not a validation): the classic Sod shock tube, run end-to-end on the
+//! FIELD substrate and printed as a 1-D density/velocity/pressure profile.
+//!
+//! This example is intentionally a visual/smoke demo: it writes `sod_shock_tube.vtk`
+//! and prints sampled states, but it does not compare against an exact Riemann
+//! solution or exit with a PASS/FAIL verdict.
 //!
 //! `cargo run -p test_cfd --example sod_shock_tube`
 
-use cfd_state::CfdState;
 use cfd_solver::SolverState;
+use cfd_state::CfdState;
 use test_cfd::prelude::*;
 
 fn main() {
+    println!("DEMO (not a validation): Sod shock tube profile; no PASS/FAIL gate");
+
     let eos = IdealGas::air();
     // Sod's classic left/right states (quiescent, p & rho jump at x = 0.5).
     let left = eos.prim_to_cons(&PrimVar::new(1.0, 0.0, 0.0, 0.0, 100_000.0, 348.4));
@@ -30,14 +36,18 @@ fn main() {
         .with_axis(2, SlipWall);
 
     let mut app = App::new();
-    app.add_plugins(FieldDefaultPlugins { mesh })
-        .add_plugins(
-            CfdDefaultPlugins::new(init)
-                .hllc()
-                .rk3()
-                .boundary(bcs)
-                .config(SolverConfig { cfl: 0.4, fixed_dt: None, viscous: false, muscl: false }),
-        );
+    app.add_plugins(FieldDefaultPlugins { mesh }).add_plugins(
+        CfdDefaultPlugins::new(init)
+            .hllc()
+            .rk3()
+            .boundary(bcs)
+            .config(SolverConfig {
+                cfl: 0.4,
+                fixed_dt: None,
+                viscous: false,
+                muscl: false,
+            }),
+    );
     app.prepare();
 
     let n_steps = 60usize;
@@ -50,7 +60,10 @@ fn main() {
     let state = reg.get::<CfdState>().unwrap();
     let ss = app.get_resource_ref::<SolverState>().unwrap();
 
-    println!("Sod shock tube — {} RK3 steps, t = {:.5e} s", ss.step, ss.time);
+    println!(
+        "Sod shock tube — {} RK3 steps, t = {:.5e} s",
+        ss.step, ss.time
+    );
     println!("   x      rho       u        p");
     let [ni, _, _] = mesh.dims();
     for i in (0..ni).step_by(4) {

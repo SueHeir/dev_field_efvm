@@ -1,5 +1,9 @@
-//! Config-driven Sod shock tube: the grid, solver settings, and run length all
-//! come from a TOML file (toy-cfd's `grass_io` config workflow).
+//! DEMO (not a validation): config-driven Sod shock tube. The grid, solver
+//! settings, and run length all come from a TOML file (toy-cfd's `grass_io`
+//! config workflow).
+//!
+//! This demonstrates the declarative input path and writes VTK, but it does not
+//! compare against an exact Riemann solution or exit with a PASS/FAIL verdict.
 //!
 //! `cargo run -p test_cfd --example config_driven -- crates/test_cfd/examples/sod.toml`
 
@@ -8,6 +12,8 @@ use grass_io::{Config, InputPlugin, RunPlugin};
 use test_cfd::prelude::*;
 
 fn main() {
+    println!("DEMO (not a validation): config-driven Sod shock tube; no PASS/FAIL gate");
+
     let mut app = App::new();
     // InputPlugin parses argv[1] as a TOML file into the `Config` resource.
     app.add_plugins(InputPlugin);
@@ -30,13 +36,17 @@ fn main() {
 
     app.add_plugins(FieldDefaultPlugins { mesh: mesh_cfg })
         .add_plugins(
-            CfdDefaultPlugins::new(init)
-                .config(solver_cfg)
-                .boundary(BoundaryRegistry::default().with_axis(1, SlipWall).with_axis(2, SlipWall)),
+            CfdDefaultPlugins::new(init).config(solver_cfg).boundary(
+                BoundaryRegistry::default()
+                    .with_axis(1, SlipWall)
+                    .with_axis(2, SlipWall),
+            ),
         )
         // RunPlugin drives `[run].steps` iterations, then ends the App.
         .add_plugins(RunPlugin)
-        .add_plugins(OutputPlugin { path: "config_driven.vtk".into() });
+        .add_plugins(OutputPlugin {
+            path: "config_driven.vtk".into(),
+        });
 
     app.start();
     println!("config-driven run complete");

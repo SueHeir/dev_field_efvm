@@ -93,6 +93,9 @@ the drag to plateau; a transient pass-through value is not accepted as validatio
 
 - No peer review, no independent production-code comparison suite, and no claim
   of general CFD fidelity.
+- The Sod shock-tube examples are **DEMO (not a validation)** cases: they exercise
+  the end-to-end FIELD/CFD path and VTK output, but do not compare against an exact
+  Riemann solution or print a PASS/FAIL verdict.
 - AMR/p4est support exists in older tests and examples, but the default validation
   story above is the uniform FIELD path.
 - The current validated IBM drag story is a stationary analytic cylinder at one
