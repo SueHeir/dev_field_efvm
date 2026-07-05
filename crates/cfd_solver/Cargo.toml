@@ -16,6 +16,9 @@ cfd_state.workspace = true
 cfd_eos.workspace = true
 cfd_riemann.workspace = true
 
+[features]
+mpi_backend = ["field_core/mpi_backend", "grass_mpi/mpi_backend"]
+
 [dev-dependencies]
 cfd_boundary.workspace = true
 cfd_output.workspace = true
