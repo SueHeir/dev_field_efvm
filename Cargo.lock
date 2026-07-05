@@ -117,10 +117,6 @@ dependencies = [
  "serde",
  "soil_core",
  "soil_verlet",
- "sph_atom",
- "sph_constitutive",
- "sph_core",
- "sph_physics",
 ]
 
 [[package]]
@@ -756,61 +752,6 @@ dependencies = [
  "grass_app",
  "grass_scheduler",
  "soil_core",
-]
-
-[[package]]
-name = "sph_atom"
-version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=e8a7a647f432dcb75893ee98ba22bb45bd8e283d#e8a7a647f432dcb75893ee98ba22bb45bd8e283d"
-dependencies = [
- "grass_app",
- "grass_scheduler",
- "serde",
- "soil_core",
- "soil_derive",
- "sph_constitutive",
-]
-
-[[package]]
-name = "sph_constitutive"
-version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=e8a7a647f432dcb75893ee98ba22bb45bd8e283d#e8a7a647f432dcb75893ee98ba22bb45bd8e283d"
-
-[[package]]
-name = "sph_core"
-version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=e8a7a647f432dcb75893ee98ba22bb45bd8e283d#e8a7a647f432dcb75893ee98ba22bb45bd8e283d"
-dependencies = [
- "grass_app",
- "grass_derive",
- "grass_scheduler",
- "soil_core",
- "soil_derive",
- "soil_print",
- "soil_verlet",
- "sph_atom",
- "sph_constitutive",
- "sph_kernel",
- "sph_physics",
-]
-
-[[package]]
-name = "sph_kernel"
-version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=e8a7a647f432dcb75893ee98ba22bb45bd8e283d#e8a7a647f432dcb75893ee98ba22bb45bd8e283d"
-
-[[package]]
-name = "sph_physics"
-version = "0.1.0"
-source = "git+ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git?rev=e8a7a647f432dcb75893ee98ba22bb45bd8e283d#e8a7a647f432dcb75893ee98ba22bb45bd8e283d"
-dependencies = [
- "grass_app",
- "grass_scheduler",
- "serde",
- "soil_core",
- "sph_atom",
- "sph_constitutive",
- "sph_kernel",
 ]
 
 [[package]]
