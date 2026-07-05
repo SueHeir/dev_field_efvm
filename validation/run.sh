@@ -26,8 +26,9 @@ cargo test -p cfd_solver --test isentropic_vortex_muscl_convergence -- --nocaptu
 # Analytic plane-Poiseuille velocity profile.
 cargo test -p cfd_solver --test poiseuille_channel_validation -- --nocapture
 
-# Stokes terminal velocity, low-Reynolds settling sphere (IBM).
-cargo run --release -p cfd_ibm --example settling_sphere -- crates/cfd_ibm/examples/settling_sphere_stokes.toml
+# NOTE: the low-Reynolds settling-sphere Stokes gate was a DEM<->CFD coupling
+# case; it moved with the other couplings to SueHeir/dev_couple_dem_cfd and is
+# gated there. dev_field_efvm now gates only the pure-CFD solver/IBM.
 
 if [ "$MODE" = "full" ]; then
   # --- Full gates: heavy, wait-for-plateau. Scheduled / on-demand only. ---

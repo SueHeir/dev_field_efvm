@@ -1,0 +1,16 @@
+graphify-out/
+*.html
+*.htm
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
+*.pdf
+*.mp4
+*.mov
+*.mp3
+*.wav
+*.docx
+*.xlsx
