@@ -13,10 +13,11 @@
 //! test sweeps three grids, fits the observed order, and asserts it matches the
 //! 1st-order design order within tolerance.
 //!
-//! (2nd-order MUSCL reconstruction exists in `cfd_solver` but its
-//! `compute_slopes`/`muscl_flux` systems are wired for `field_amr::ForestMesh`'s
-//! contiguous local-cell packing via `CartesianMesh`, which `UniformMesh` does
-//! not implement — so the uniform-grid design order is 1. See the PR notes.)
+//! This case deliberately runs `muscl:false` to pin the **1st-order** design
+//! order. The 2nd-order MUSCL companion — same vortex, `MusclPlugin` — lives in
+//! `isentropic_vortex_muscl_convergence.rs` and asserts a fitted order ≥ 1.8.
+//! (`UniformMesh` now implements `field_core::CartesianMesh`, so MUSCL runs on the
+//! uniform grid too, not only `ForestMesh`.)
 
 use cfd_boundary::{BoundaryPlugin, BoundaryRegistry, SlipWall, SupersonicOutflow};
 use cfd_eos::{Eos, IdealGas};

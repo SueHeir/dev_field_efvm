@@ -11,8 +11,8 @@ use cfd_eos::{Eos, EosResource, IdealGas};
 use cfd_riemann::Rusanov;
 use cfd_solver::{
     cfl_generic_system, compute_slopes_system, flux_system, halo_system, muscl_flux_system,
-    update_system, zero_rhs_system, EulerIntegrator, MusclSlopes, RiemannFluxResource, SolverConfig,
-    SolverState, TimeIntegratorResource,
+    update_system, zero_rhs_system, EulerIntegrator, MusclSlopes, RiemannFluxResource, SlopeLimiter,
+    SolverConfig, SolverState, TimeIntegratorResource,
 };
 use cfd_state::{CfdState, PrimVar};
 use field_core::{
@@ -65,6 +65,7 @@ fn run_box(muscl: bool, steps: usize) -> (f64, f64) {
     app.add_resource(SolverState::default());
     app.add_resource(SolverConfig { cfl: 0.2, fixed_dt: None, viscous: false, muscl });
     app.add_resource(MusclSlopes::default());
+    app.add_resource(SlopeLimiter::default()); // minmod — the historical MUSCL limiter
     // Closed box: slip walls on all six sides ⇒ no boundary mass flux.
     let mut bcs = BoundaryRegistry::default();
     for side in [
@@ -154,6 +155,7 @@ fn muscl_preserves_uniform_flow_on_the_forest() {
     app.add_resource(SolverState::default());
     app.add_resource(SolverConfig { cfl: 0.2, fixed_dt: None, viscous: false, muscl: true });
     app.add_resource(MusclSlopes::default());
+    app.add_resource(SlopeLimiter::default()); // minmod — the historical MUSCL limiter
     app.add_resource(BoundaryRegistry::default()); // outflow
     register_field_data!(app, CfdState::default());
 
