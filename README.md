@@ -32,8 +32,7 @@ of use.
 - Rusanov, HLLC, and MUSCL reconstruction support.
 - Explicit Euler / SSP-RK3 stepping through FIELD schedule phases.
 - Sharp-interface ghost-cell immersed-boundary machinery for analytic bodies.
-- Example-level CFD/particle coupling seams used by later DEM-CFD and SPH-CFD
-  experiments.
+- Top-level validation examples under `examples/<case>/`.
 
 The crate split mirrors the physics responsibilities:
 
@@ -44,9 +43,9 @@ The crate split mirrors the physics responsibilities:
 | `cfd_riemann` | inviscid numerical fluxes |
 | `cfd_boundary` | boundary-condition traits and registry |
 | `cfd_solver` | flux assembly, CFL, RK integration, MUSCL, viscous terms |
-| `cfd_ibm` | ghost-cell immersed boundary, marker loads, coupling examples |
+| `cfd_ibm` | ghost-cell immersed boundary and marker loads |
 | `cfd_output` | CFD-specific VTK fields |
-| `test_cfd` | top-level bundle and older p4est-oriented examples/tests |
+| `test_cfd` | top-level bundle and p4est-oriented tests |
 
 ## Validated Cases
 
@@ -59,14 +58,14 @@ fits the mesh-refinement order. The first-order HLLC/Godunov path is pinned by
 `crates/cfd_solver/tests/isentropic_vortex_convergence.rs`; the MUSCL path is
 pinned by `crates/cfd_solver/tests/isentropic_vortex_muscl_convergence.rs` and
 requires a fitted order of at least 1.8. The runnable TOML example is
-`crates/cfd_solver/examples/isentropic_vortex.toml`.
+`examples/isentropic_vortex/config.toml`.
 
 **Immersed-boundary cylinder drag.** The ghost-cell IBM runs the Schaefer-Turek
 DFG 2D-1 flow-around-a-cylinder benchmark at `Re = 20`, using the marker-integrated
 drag coefficient against `Cd = 5.5795`. The case gates on drag accuracy, a flat
 steady plateau, and lift. The case lives in
-`crates/cfd_ibm/examples/cylinder_drag_validation.rs` with the declarative input
-`crates/cfd_ibm/examples/cylinder_drag_re20.toml`.
+`examples/cylinder_drag_validation/` with the declarative input
+`examples/cylinder_drag_validation/config.toml`.
 
 Both cases are intentionally narrow. The vortex is a smooth manufactured-style
 Euler check, not a turbulence or shock validation. The cylinder is one steady,
@@ -82,8 +81,8 @@ From this repo, with the sibling `grass`, `field`, and `soil` checkouts present:
 source ~/projects/.build-env
 cargo test -p cfd_solver --test isentropic_vortex_convergence -- --nocapture
 cargo test -p cfd_solver --test isentropic_vortex_muscl_convergence -- --nocapture
-cargo run --release -p cfd_ibm --example cylinder_drag_validation -- \
-  crates/cfd_ibm/examples/cylinder_drag_re20.toml
+cargo run --release -p dev_field_efvm --bin cylinder_drag_validation -- \
+  examples/cylinder_drag_validation/config.toml
 ```
 
 The cylinder case is intentionally heavier than a unit test because it waits for
@@ -100,8 +99,7 @@ the drag to plateau; a transient pass-through value is not accepted as validatio
   story above is the uniform FIELD path.
 - The current validated IBM drag story is a stationary analytic cylinder at one
   steady Reynolds number, not a complete FSI solver.
-- DEM-CFD and SPH-CFD seams are example-stage work. They are useful for testing
-  the stack interfaces, but each coupled physics claim needs its own validation.
+- DEM-CFD and SPH-CFD seams live in dedicated `dev_couple_*` repositories.
 - Most examples are written to expose the mechanism plainly. Expect to read and
   change Rust, not only edit input files.
 
