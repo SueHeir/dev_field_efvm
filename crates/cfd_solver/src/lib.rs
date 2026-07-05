@@ -136,15 +136,35 @@ pub fn flux_system<M: FvMesh>(
 #[derive(Default)]
 pub struct MusclSlopes(pub Vec<[ConsVar; 3]>);
 
-/// Component-wise minmod limiter: 0 if the two differences disagree in sign,
-/// else the smaller-magnitude one — the standard TVD slope limiter.
+/// Which TVD slope limiter [`compute_slopes_system`] applies to the forward/
+/// backward differences. Both are 2nd-order TVD limiters; they differ in how much
+/// they clip near extrema, which sets the scheme's *effective* order on smooth
+/// flows:
+/// - [`Minmod`](SlopeLimiter::Minmod) — the most diffusive TVD limiter: it takes
+///   the smaller-magnitude one-sided difference and **zeros the slope at every
+///   smooth extremum**, so on a smooth field it degrades the formal 2nd order to
+///   ≈1.6 in L1 (the extremum is clipped to piecewise-constant). Most robust near
+///   strong shocks.
+/// - [`MonotonizedCentral`](SlopeLimiter::MonotonizedCentral) — van Leer's MC
+///   limiter: the central difference bounded by twice each one-sided difference.
+///   Still TVD, but it only clips where a genuine over/undershoot would occur, so
+///   it preserves the reconstruction's **full 2nd-order** accuracy on smooth flows
+///   (≈2.0 in L1 on the isentropic vortex — see the order gate).
 ///
-/// Applied per *conserved* component (not on characteristic fields), so it is
-/// strictly TVD only for scalar advection; on the Euler system it is the usual
-/// robust-but-diffusive heuristic (can mildly smear contacts and admit tiny
-/// over/undershoots near strong shocks). It bounds the slope — it does not
-/// re-check the reconstructed face value — so it keeps the scheme stable rather
-/// than provably monotone.
+/// Default is [`Minmod`](SlopeLimiter::Minmod), preserving the historical scheme;
+/// choose `MonotonizedCentral` when 2nd-order accuracy on smooth flow matters more
+/// than maximal shock robustness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum SlopeLimiter {
+    #[default]
+    Minmod,
+    MonotonizedCentral,
+}
+
+/// Two-argument minmod: 0 if the one-sided differences disagree in sign, else the
+/// smaller-magnitude one. Bounds the slope (keeps the scheme TVD); it does not
+/// re-check the reconstructed face value, so it is stable rather than provably
+/// monotone.
 #[inline]
 fn minmod(a: f64, b: f64) -> f64 {
     if a * b <= 0.0 {
@@ -156,14 +176,36 @@ fn minmod(a: f64, b: f64) -> f64 {
     }
 }
 
+/// Monotonized-central (MC) limiter of the two one-sided differences: the central
+/// slope `(a+b)/2` clamped to `±2·min(|a|,|b|)`. Zero when the differences disagree
+/// in sign (same TVD guard as minmod), but away from extrema it keeps the full
+/// central slope, so it is 2nd-order accurate at smooth extrema where minmod clips.
 #[inline]
-fn minmod_cons(fwd: ConsVar, bwd: ConsVar) -> ConsVar {
+fn monotonized_central(a: f64, b: f64) -> f64 {
+    if a * b <= 0.0 {
+        0.0
+    } else {
+        let s = if a > 0.0 { 1.0 } else { -1.0 };
+        s * (2.0 * a.abs()).min(2.0 * b.abs()).min(0.5 * (a + b).abs())
+    }
+}
+
+/// Apply `limiter` to the forward/backward differences of every conserved
+/// component. Limiting on *conserved* (not characteristic) variables — the usual
+/// robust heuristic — so it is strictly TVD only for scalar advection; on the
+/// Euler system it can mildly smear contacts near strong shocks.
+#[inline]
+fn limited_slope_cons(fwd: ConsVar, bwd: ConsVar, limiter: SlopeLimiter) -> ConsVar {
+    let lim: fn(f64, f64) -> f64 = match limiter {
+        SlopeLimiter::Minmod => minmod,
+        SlopeLimiter::MonotonizedCentral => monotonized_central,
+    };
     ConsVar::new(
-        minmod(fwd.rho, bwd.rho),
-        minmod(fwd.rho_u, bwd.rho_u),
-        minmod(fwd.rho_v, bwd.rho_v),
-        minmod(fwd.rho_w, bwd.rho_w),
-        minmod(fwd.rho_e, bwd.rho_e),
+        lim(fwd.rho, bwd.rho),
+        lim(fwd.rho_u, bwd.rho_u),
+        lim(fwd.rho_v, bwd.rho_v),
+        lim(fwd.rho_w, bwd.rho_w),
+        lim(fwd.rho_e, bwd.rho_e),
     )
 }
 
@@ -190,10 +232,18 @@ fn neighbor_mean(idx: &[usize], u: &[ConsVar]) -> Option<ConsVar> {
 pub fn compute_slopes_system<M: CartesianMesh>(
     mesh: Res<M>,
     reg: Res<FieldRegistry>,
+    limiter: Res<SlopeLimiter>,
     mut slopes: ResMut<MusclSlopes>,
 ) {
+    let limiter = *limiter;
     let state = reg.expect_mut::<CfdState>("CfdState not registered");
-    let n = mesh.n_local_cells();
+    // Size + index the slope buffer by the *full* cell array (locals + ghosts), so
+    // it is addressable by any face's `owner`/`other` regardless of how the mesh
+    // packs local cells. `ForestMesh` packs locals contiguously at the front
+    // (indices < n_local); `UniformMesh` interleaves them with ghost layers in a
+    // padded raw array — both are handled by keying on the cell index directly and
+    // skipping non-local cells via `is_local_cell`.
+    let n = mesh.n_cells_total();
     slopes.0.resize(n, [ConsVar::ZERO; 3]);
 
     for c in 0..n {
@@ -209,7 +259,7 @@ pub fn compute_slopes_system<M: CartesianMesh>(
             // Missing a neighbour on this axis ⇒ stay 1st-order on this axis only
             // (slot keeps its zero); the other axes are unaffected.
             if let (Some(up), Some(un)) = (pos, neg) {
-                *slot = minmod_cons(up - u_self, u_self - un);
+                *slot = limited_slope_cons(up - u_self, u_self - un, limiter);
             }
         }
         slopes.0[c] = s;
@@ -250,7 +300,6 @@ pub fn muscl_flux_system<M: CartesianMesh>(
     let eos: &dyn Eos = &*eos.0;
     let flux: &dyn RiemannFlux = &*flux.0;
     let slopes = &slopes.0;
-    let nloc = slopes.len();
 
     mesh.for_each_face(&mut |f| {
         let an = f.area_normal;
@@ -271,8 +320,10 @@ pub fn muscl_flux_system<M: CartesianMesh>(
             state.u[f.owner]
         };
         // Reconstruct the other side only if it is a real local leaf with slopes;
-        // boundary/halo ghosts (index ≥ n_local) use their filled cell value.
-        let u_r = if interior && f.other < nloc {
+        // boundary/halo ghosts use their BC-filled cell value (`is_local_cell` is
+        // the packing-agnostic test — ForestMesh ghosts sit at index ≥ n_local,
+        // UniformMesh ghosts sit in the padded raw band).
+        let u_r = if interior && mesh.is_local_cell(f.other) {
             reconstruct_to_face(state.u[f.other], &slopes[f.other], f.centroid, mesh.cell_centroid(f.other))
         } else {
             state.u[f.other]
@@ -719,21 +770,31 @@ impl<M: FvMesh> Plugin for FluxPlugin<M> {
 }
 
 /// Alternative to [`FluxPlugin`]: 2nd-order **MUSCL** reconstruction. Registers
-/// the slope buffer ([`MusclSlopes`]), the minmod slope pass (`PreFlux`, after the
-/// boundary ghosts are filled), and the reconstructing flux (`Flux`). Generic
-/// over the [`CartesianMesh`], so the same plugin serves the uniform grid and the
-/// p4est forest. Use *instead of* [`FluxPlugin`].
+/// the slope buffer ([`MusclSlopes`]), the slope [`SlopeLimiter`], the limited
+/// slope pass (`PreFlux`, after the boundary ghosts are filled), and the
+/// reconstructing flux (`Flux`). Generic over the [`CartesianMesh`], so the same
+/// plugin serves the uniform grid and the p4est forest. Use *instead of*
+/// [`FluxPlugin`]. The limiter defaults to [`SlopeLimiter::Minmod`]; select
+/// another with [`with_limiter`](MusclPlugin::with_limiter).
 pub struct MusclPlugin<M: CartesianMesh> {
     flux: Arc<dyn RiemannFlux>,
+    limiter: SlopeLimiter,
     _marker: PhantomData<fn() -> M>,
 }
 
 impl<M: CartesianMesh> MusclPlugin<M> {
     pub fn rusanov() -> Self {
-        Self { flux: Arc::new(cfd_riemann::Rusanov), _marker: PhantomData }
+        Self { flux: Arc::new(cfd_riemann::Rusanov), limiter: SlopeLimiter::default(), _marker: PhantomData }
     }
     pub fn hllc() -> Self {
-        Self { flux: Arc::new(cfd_riemann::Hllc), _marker: PhantomData }
+        Self { flux: Arc::new(cfd_riemann::Hllc), limiter: SlopeLimiter::default(), _marker: PhantomData }
+    }
+    /// Select the slope limiter (default [`SlopeLimiter::Minmod`]). Use
+    /// [`SlopeLimiter::MonotonizedCentral`] for full 2nd-order accuracy on smooth
+    /// flow.
+    pub fn with_limiter(mut self, limiter: SlopeLimiter) -> Self {
+        self.limiter = limiter;
+        self
     }
 }
 
@@ -741,6 +802,7 @@ impl<M: CartesianMesh> Plugin for MusclPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_resource(RiemannFluxResource(self.flux.clone()));
         app.add_resource(MusclSlopes::default());
+        app.add_resource(self.limiter);
         app.add_update_system(compute_slopes_system::<M>, MeshScheduleSet::PreFlux);
         app.add_update_system(muscl_flux_system::<M>, MeshScheduleSet::Flux);
     }
