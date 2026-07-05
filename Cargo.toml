@@ -1,6 +1,17 @@
+[package]
+name = "dev_field_efvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Top-level CFD validation examples for the FIELD finite-volume tier"
+publish = false
+autoexamples = false
+
 [workspace]
 resolver = "2"
 members = [
+    ".",
     "crates/cfd_state",
     "crates/cfd_eos",
     "crates/cfd_riemann",
@@ -44,3 +55,72 @@ cfd_output = { path = "crates/cfd_output" }
 # deps), so the `[patch]` blocks these couplings needed are gone.
 #   SPH<->CFD plume_surface        -> SueHeir/dev_couple_sph_cfd
 #   DEM<->CFD settling/bed/fiber   -> SueHeir/dev_couple_dem_cfd
+
+[features]
+mpi_backend = [
+    "dep:field_amr",
+    "dep:field_p4est",
+    "dep:grass_mpi",
+    "field_core/mpi_backend",
+    "grass_mpi/mpi_backend",
+]
+
+[dependencies]
+field_core.workspace = true
+field_amr = { workspace = true, optional = true }
+field_p4est = { workspace = true, optional = true }
+grass_app.workspace = true
+grass_scheduler.workspace = true
+grass_mpi = { workspace = true, optional = true }
+grass_io.workspace = true
+serde.workspace = true
+cfd_state.workspace = true
+cfd_eos.workspace = true
+cfd_riemann.workspace = true
+cfd_solver.workspace = true
+cfd_boundary.workspace = true
+test_cfd.workspace = true
+cfd_ibm.workspace = true
+cfd_output.workspace = true
+toml = "0.8"
+
+[[bin]]
+name = "cylinder_drag_validation"
+path = "examples/cylinder_drag_validation/main.rs"
+
+[[bin]]
+name = "sphere_drag_resolved"
+path = "examples/sphere_drag_resolved/main.rs"
+
+[[bin]]
+name = "sphere_drag_validation"
+path = "examples/sphere_drag_validation/main.rs"
+
+[[bin]]
+name = "dkt_sedimentation"
+path = "examples/dkt_sedimentation/main.rs"
+
+[[bin]]
+name = "isentropic_vortex"
+path = "examples/isentropic_vortex/main.rs"
+
+[[bin]]
+name = "poisson_mms"
+path = "examples/poisson_mms/main.rs"
+
+[[bin]]
+name = "restart_determinism"
+path = "examples/restart_determinism/main.rs"
+
+[[bin]]
+name = "sod_shock_tube"
+path = "examples/sod_shock_tube/main.rs"
+
+[[bin]]
+name = "config_driven"
+path = "examples/config_driven/main.rs"
+
+[[bin]]
+name = "p4est_multirank"
+path = "examples/p4est_multirank/main.rs"
+required-features = ["mpi_backend"]

@@ -180,6 +180,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef8ae57c4978a2acd8b869ce6b9ca1dfe817bff704c220209fdef2c0b75a01b9"
 
 [[package]]
+name = "dev_field_efvm"
+version = "0.1.0"
+dependencies = [
+ "cfd_boundary",
+ "cfd_eos",
+ "cfd_ibm",
+ "cfd_output",
+ "cfd_riemann",
+ "cfd_solver",
+ "cfd_state",
+ "field_amr",
+ "field_core",
+ "field_p4est",
+ "grass_app",
+ "grass_io",
+ "grass_mpi",
+ "grass_scheduler",
+ "serde",
+ "test_cfd",
+ "toml",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

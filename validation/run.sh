@@ -36,7 +36,7 @@ if [ "$MODE" = "full" ]; then
   # Schaefer-Turek DFG 2D-1 flow-around-a-cylinder, Re=20, ghost-cell IBM.
   # Gates the marker-integrated drag coefficient against Cd = 5.5795, a flat
   # steady plateau, and lift. Heavier than a unit test by design.
-  cargo run --release -p cfd_ibm --example cylinder_drag_validation -- crates/cfd_ibm/examples/cylinder_drag_re20.toml
+  cargo run --release -p dev_field_efvm --bin cylinder_drag_validation -- examples/cylinder_drag_validation/config.toml
 fi
 
 echo "ALL VALIDATIONS PASSED (mode=$MODE)"

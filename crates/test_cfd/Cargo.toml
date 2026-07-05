@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Top-level compressible-CFD solver on the FIELD substrate: default plugin bundle, prelude, examples."
+autotests = false
 
 [dependencies]
 field_core.workspace = true
@@ -20,12 +21,35 @@ grass_io.workspace = true
 field_amr.workspace = true
 grass_scheduler.workspace = true
 grass_mpi.workspace = true
-field_p4est.workspace = true
+field_p4est = { workspace = true, optional = true }
 
 [features]
 # Flip CommPlugin from the serial no-op backend to the real MPI backend (rsmpi),
-# for the `p4est_multirank` cross-rank validation. Off by default so the normal
-# build/test/clippy path stays single-process. Run:
-#   cargo build -p test_cfd --example p4est_multirank --features mpi_backend
-#   mpirun -np 2 target/debug/examples/p4est_multirank
-mpi_backend = ["field_core/mpi_backend", "grass_mpi/mpi_backend"]
+# for MPI-specific consumers. Off by default so the normal build/test/clippy path
+# stays single-process and p4est-free.
+mpi_backend = ["dep:field_p4est", "field_core/mpi_backend", "grass_mpi/mpi_backend"]
+
+[[test]]
+name = "p4est_cutcell"
+path = "tests/p4est_cutcell.rs"
+required-features = ["mpi_backend"]
+
+[[test]]
+name = "p4est_euler"
+path = "tests/p4est_euler.rs"
+required-features = ["mpi_backend"]
+
+[[test]]
+name = "p4est_isentropic_vortex_order"
+path = "tests/p4est_isentropic_vortex_order.rs"
+required-features = ["mpi_backend"]
+
+[[test]]
+name = "p4est_muscl"
+path = "tests/p4est_muscl.rs"
+required-features = ["mpi_backend"]
+
+[[test]]
+name = "p4est_regrid"
+path = "tests/p4est_regrid.rs"
+required-features = ["mpi_backend"]

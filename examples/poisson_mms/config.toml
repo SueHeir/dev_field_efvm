@@ -1,0 +1,26 @@
+# FIELD global-solve proof: Poisson MMS with PCG + geometric multigrid.
+#
+#   cargo run --release -p dev_field_efvm --bin poisson_mms -- \
+#       examples/poisson_mms/config.toml
+#
+# Analytic manufactured solution:
+#   u(x,y) = sin(pi x / L) sin(pi y / L)
+#   -lap u = 2(pi/L)^2 u, with u=0 on the square boundary.
+
+[problem]
+domain = 1.0
+
+[solver]
+max_iters = 160
+relative_residual_tol = 1.0e-11
+jacobi_omega = 0.8
+pre_smooth = 3
+post_smooth = 3
+coarse_smooth = 80
+min_coarse_cells = 4
+
+[convergence]
+resolutions = [16, 32, 64]
+expected_order = 2.0
+order_tol = 0.2
+finest_l2_max = 2.0e-4
