@@ -46,21 +46,9 @@ cfd_ibm = { path = "crates/cfd_ibm" }
 cfd_output = { path = "crates/cfd_output" }
 # (cfd_output also a dep of test_cfd)
 
-# dev_soil_sph — the granular-SPH (μ(I) continuum) code (repo dev_soil_sph on Gitea). Consumed
-# ONLY by the `plume_surface` coupling example (a dev-dep of `cfd_ibm`); it never
-# enters the library build. dev_soil_sph pulls GRASS/SOIL from the Gitea remote; the
-# `[patch]` blocks below redirect those to the same sibling path checkouts the
-# rest of this workspace uses, so dev_soil_sph's SPH sub-App and the FIELD gas sub-App
-# share exactly one `grass_app::App`/`soil_core::Atom` type across the seam.
-# NOTE (cross-repo): pinned by `rev` to the dev_soil_sph commit on branch
-# auto/sph-cfd-plume-surface that repoints dev_soil_sph's grass/soil deps off the
-# dead-on-this-fleet github.com URLs to Gitea. Re-point to a `master` tag/rev
-# once dev_soil_sph PR (auto/sph-cfd-plume-surface) merges. (A `rev` pin, not a
-# `branch`, sidesteps a cargo 1.96 feature-resolver panic on git branch sources.)
-sph_core = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "e8a7a647f432dcb75893ee98ba22bb45bd8e283d" }
-sph_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "e8a7a647f432dcb75893ee98ba22bb45bd8e283d" }
-sph_constitutive = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "e8a7a647f432dcb75893ee98ba22bb45bd8e283d" }
-sph_physics = { git = "ssh://git@192.168.0.170:2222/SueHeir/dev_soil_sph.git", rev = "e8a7a647f432dcb75893ee98ba22bb45bd8e283d" }
+# NOTE: the SPH<->CFD `plume_surface` coupling that used to live here (and pulled
+# the dev_soil_sph sph_* crates) now lives in its own cross-substrate coupling
+# repo: SueHeir/dev_couple_sph_cfd. dev_field_efvm is a pure CFD tier again.
 
 # SOIL and its crates pin GRASS by git URL; redirect that source to the same
 # sibling path checkout the rest of this workspace already builds against, so the
