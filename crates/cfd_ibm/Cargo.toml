@@ -39,13 +39,13 @@ soil_verlet.workspace = true
 # the coupled sub-Apps.
 dirt_bond = { git = "ssh://git@192.168.0.170:2222/SueHeir/dirt.git", rev = "b4a23e4606a1fa8d4dc9f1196ca7ac6b7c3155f0", default-features = false, features = ["precision-double"] }
 dirt_atom = { git = "ssh://git@192.168.0.170:2222/SueHeir/dirt.git", rev = "b4a23e4606a1fa8d4dc9f1196ca7ac6b7c3155f0", default-features = false, features = ["precision-double"] }
-# The `plume_surface` example additionally drives the MUD granular-SPH (μ(I)
+# The `plume_surface` example additionally drives the dev_soil_sph granular-SPH (μ(I)
 # continuum) code as the Lagrangian sub-App, so the granular phase is a real
 # elasto-viscoplastic continuum rather than discrete DEM grains. Same seam.
-mud_core.workspace = true
-mud_atom.workspace = true
-mud_constitutive.workspace = true
-mud_physics.workspace = true
+sph_core.workspace = true
+sph_atom.workspace = true
+sph_constitutive.workspace = true
+sph_physics.workspace = true
 
 [[example]]
 name = "cylinder_drag_validation"

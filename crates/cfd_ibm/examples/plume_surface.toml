@@ -2,7 +2,7 @@
 # Coupled SPH–CFD plume/surface interaction — the DYNAMIC minimum-fluidization
 # limit, cross-validated against the resolved DEM–CFD reference.
 #
-# A gas flows UP (+z) through a settled μ(I)-continuum granular bed (MUD SPH),
+# A gas flows UP (+z) through a settled μ(I)-continuum granular bed (dev_soil_sph SPH),
 # coupled to the gas (dev_field_efvm FIELD) through the DEM–CFD seam VERBATIM
 # (`cfd_ibm::coupling`). The tolerance-checked observable is the minimum
 # fluidization velocity U_mf, measured through the LIVE coupled seam and:
@@ -25,7 +25,7 @@ p   = 1.0e5        # Pa
 mu  = 1.8e-5       # Pa.s    (air dynamic viscosity)
 
 [bed]
-# μ(I) granular material (glass-like) — the MUD SPH continuum.
+# μ(I) granular material (glass-like) — the dev_soil_sph SPH continuum.
 rho_s        = 2500.0    # grain (solid) density kg/m^3
 rho_c        = 1500.0    # contact-branch onset density
 mu_s         = 0.38      # μ(I): static friction
@@ -46,7 +46,7 @@ z_lo = 0.0
 z_hi = 0.03              # ~3 cm tall bed
 floor_thickness = 0.01   # frozen floor from -floor_thickness to 0
 settle_steps = 1200      # gravity relaxation before measuring eps_bed
-mud_dt = 1.0e-5          # s  (SPH timestep; c=sqrt(K/rho)~50 m/s -> dx/c~1e-4)
+sph_dt = 1.0e-5          # s  (SPH timestep; c=sqrt(K/rho)~50 m/s -> dx/c~1e-4)
 
 [grid]
 # Gas (FIELD) mesh: x/y span the bed footprint, z spans bed + freeboard.

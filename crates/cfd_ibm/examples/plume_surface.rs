@@ -13,7 +13,7 @@
 //!
 //! Unlike the merged `fluidized_bed_umf` capstone — where the bed is a packing of
 //! discrete `soil::Atom` grains — here the granular phase is a **μ(I) elasto-
-//! viscoplastic continuum** carried by the MUD SPH tier (`mud_core`): a real
+//! viscoplastic continuum** carried by the dev_soil_sph SPH tier (`sph_core`): a real
 //! settling bed of continuum parcels, each carrying many grains. The parcels are
 //! coupled to the gas (dev_field_efvm FIELD substrate, `CfdState`) through the **DEM–CFD
 //! interphase seam reused VERBATIM** (`cfd_ibm::coupling`): the parcels' solid
@@ -117,7 +117,7 @@ use field_core::{
     UniformMeshConfig, Vec3,
 };
 use grass_multi::{tick_subapp, Multi, MultiAppExt, SubApps};
-use mud_core::prelude::*;
+use sph_core::prelude::*;
 use serde::Deserialize;
 
 const R_GAS: f64 = 287.058; // matches IdealGas::air()
@@ -152,7 +152,7 @@ struct BedCfg {
     z_hi: f64,
     floor_thickness: f64,
     settle_steps: usize,
-    mud_dt: f64,
+    sph_dt: f64,
 }
 
 #[derive(Deserialize, Default)]
@@ -446,7 +446,7 @@ fn deposit_worst_err(mesh: &UniformMesh, eps_field: &[f64], eps_bed: f64) -> f64
 
 // ─── Part A: the settled μ(I)-continuum SPH bed ───────────────────────────────
 
-fn mud_config_toml(bed: &BedCfg, grav: &GravityCfg, dt: f64) -> String {
+fn sph_config_toml(bed: &BedCfg, grav: &GravityCfg, dt: f64) -> String {
     let floor_lo = bed.z_lo - bed.floor_thickness;
     let dom_z_hi = bed.z_hi + 4.0 * bed.spacing;
     let bin = 4.0 * bed.spacing;
@@ -456,11 +456,11 @@ fn mud_config_toml(bed: &BedCfg, grav: &GravityCfg, dt: f64) -> String {
          boundary_x=\"periodic\"\nboundary_y=\"periodic\"\nboundary_z=\"fixed\"\n\
          [neighbor]\nnewton=false\nskin_fraction=1.2\nbin_size={bin}\n\
          [gravity]\ngx=0.0\ngy=0.0\ngz={gz}\n\
-         [mud]\n[[mud.materials]]\nname=\"grain\"\nmu_s={mus}\nmu_2={mu2}\ni0={i0}\n\
+         [sph]\n[[sph.materials]]\nname=\"grain\"\nmu_s={mus}\nmu_2={mu2}\ni0={i0}\n\
          rho_s={rhos}\nrho_c={rhoc}\nbulk_modulus={bulk}\npoisson={pois}\nd={d}\nrestitution={rest}\n\
-         [[mud.insert]]\nmaterial=\"grain\"\nregion_min=[{xlo},{ylo},{fzlo}]\nregion_max=[{xhi},{yhi},{zlo}]\n\
+         [[sph.insert]]\nmaterial=\"grain\"\nregion_min=[{xlo},{ylo},{fzlo}]\nregion_max=[{xhi},{yhi},{zlo}]\n\
          spacing={sp}\nfrozen=true\n\
-         [[mud.insert]]\nmaterial=\"grain\"\nregion_min=[{xlo},{ylo},{zlo}]\nregion_max=[{xhi},{yhi},{bzhi}]\n\
+         [[sph.insert]]\nmaterial=\"grain\"\nregion_min=[{xlo},{ylo},{zlo}]\nregion_max=[{xhi},{yhi},{bzhi}]\n\
          spacing={sp}\nrest_density={rd}\n\
          [output]\ndir=\"/tmp/plume_surface_dump\"\n\
          [[run]]\nname=\"settle\"\nsteps=100000000\ndt={dt}\n",
@@ -481,7 +481,7 @@ struct FluidForces {
 
 /// `Force` phase on the SPH sub-App: add the seam's fluid load to each free parcel.
 fn sph_fluid_force(mut atoms: ResMut<Atom>, ff: Res<FluidForces>, registry: Res<AtomDataRegistry>) {
-    let sph = registry.expect::<MudAtom>("sph_fluid_force");
+    let sph = registry.expect::<SphAtom>("sph_fluid_force");
     let n = atoms.nlocal as usize;
     for i in 0..n {
         if sph.is_boundary[i] > 0.5 {
@@ -496,7 +496,7 @@ fn sph_fluid_force(mut atoms: ResMut<Atom>, ff: Res<FluidForces>, registry: Res<
 }
 
 fn build_sph_app(bed: &BedCfg, grav: &GravityCfg, dt: f64) -> App {
-    let toml = mud_config_toml(bed, grav, dt);
+    let toml = sph_config_toml(bed, grav, dt);
     let mut app = App::new();
     app.add_resource(grass_io::Config::from_str(&toml));
     app.add_resource(grass_io::Input {
@@ -504,20 +504,20 @@ fn build_sph_app(bed: &BedCfg, grav: &GravityCfg, dt: f64) -> App {
         output_dir: Some(String::from("/tmp/plume_surface_dump")),
     });
     app.add_plugins(CorePlugins)
-        .add_plugins(MudDefaultPlugins)
-        .add_plugins(MudGravityPlugin);
+        .add_plugins(SphDefaultPlugins)
+        .add_plugins(SphGravityPlugin);
     app.add_resource(FluidForces::default());
     app.add_update_system(sph_fluid_force, ParticleSimScheduleSet::Force);
     app
 }
 
-/// Read the free (non-boundary) parcels out of a prepared+run MUD app as seam
+/// Read the free (non-boundary) parcels out of a prepared+run dev_soil_sph app as seam
 /// `Parcel`s, plus the mean settled voidage `ε_bed = 1 − mean(ρ)/ρ_s`, `z_top`,
 /// `z_bot`, and the mean grain-contact pressure of the free parcels.
 fn read_bed(app: &App, rho_s: f64) -> (Vec<Parcel>, f64, f64, f64, f64) {
     let atoms = app.get_resource_ref::<Atom>().expect("Atom");
     let registry = app.get_resource_ref::<AtomDataRegistry>().expect("registry");
-    let sph = registry.expect::<MudAtom>("read_bed");
+    let sph = registry.expect::<SphAtom>("read_bed");
     let n = atoms.nlocal as usize;
     let mut parcels = Vec::new();
     let (mut sum_phi, mut sum_p) = (0.0, 0.0);
@@ -602,7 +602,7 @@ fn main() {
     let g = grav.gz.abs();
 
     // ── Part A: settle the μ(I) continuum bed, measure ε_bed + settled contact p ──
-    let mut sph = build_sph_app(&bed, &grav, bed.mud_dt);
+    let mut sph = build_sph_app(&bed, &grav, bed.sph_dt);
     sph.prepare();
     for _ in 0..bed.settle_steps {
         sph.run();
@@ -929,7 +929,7 @@ fn import_forces(world: Multi) {
 /// mean contact pressure, and the worst two-way momentum-conservation error.
 #[allow(clippy::too_many_arguments)]
 fn run_coupled(gas: &GasCfg, bed: &BedCfg, grid: &GridCfg, grav: &GravityCfg, eps_bed: f64, u_super: f64, steps: usize) -> DynResult {
-    let dt = bed.mud_dt;
+    let dt = bed.sph_dt;
     let props = GasProps {
         mu: gas.mu,
         rho: gas.rho,
@@ -987,12 +987,12 @@ fn prime_and_spec(parent: &mut App, bed: &BedCfg) {
         let reg_cell = sph.resource_cell(TypeId::of::<AtomDataRegistry>()).unwrap().borrow();
         let atoms = atom_cell.downcast_ref::<Atom>().unwrap();
         let registry = reg_cell.downcast_ref::<AtomDataRegistry>().unwrap();
-        let mud = registry.expect::<MudAtom>("prime_and_spec");
+        let sph = registry.expect::<SphAtom>("prime_and_spec");
         let n = atoms.nlocal as usize;
         let (mut radius, mut v_solid) = (Vec::with_capacity(n), Vec::with_capacity(n));
         for i in 0..n {
-            let vs = mud.particle_mass[i] / bed.rho_s;
-            if mud.is_boundary[i] > 0.5 {
+            let vs = sph.particle_mass[i] / bed.rho_s;
+            if sph.is_boundary[i] > 0.5 {
                 radius.push(0.0);
                 v_solid.push(0.0);
             } else {
@@ -1020,16 +1020,16 @@ fn sph_bed_state(parent: &App) -> (f64, f64) {
     let reg_cell = sph.resource_cell(TypeId::of::<AtomDataRegistry>()).unwrap().borrow();
     let atoms = atom_cell.downcast_ref::<Atom>().unwrap();
     let registry = reg_cell.downcast_ref::<AtomDataRegistry>().unwrap();
-    let mud = registry.expect::<MudAtom>("sph_bed_state");
+    let sph = registry.expect::<SphAtom>("sph_bed_state");
     let n = atoms.nlocal as usize;
     let (mut sum_vz, mut sum_p) = (0.0, 0.0);
     let mut nfree = 0usize;
     for i in 0..n {
-        if mud.is_boundary[i] > 0.5 {
+        if sph.is_boundary[i] > 0.5 {
             continue;
         }
         sum_vz += atoms.vel[i][2];
-        sum_p += mud.pressure[i];
+        sum_p += sph.pressure[i];
         nfree += 1;
     }
     let nf = nfree.max(1) as f64;
