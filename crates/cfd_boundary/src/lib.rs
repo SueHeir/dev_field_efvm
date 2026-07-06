@@ -8,17 +8,13 @@
 //! shrinks to **owner-only**: `ghost(interior, side, eos) -> ConsVar`. Adding a BC
 //! is still just one struct impl — no central enum, no framework edit.
 //!
-//! ## Periodic is deferred
-//!
-//! toy-cfd's `Periodic` copied the opposite-side interior cell — information a
-//! single boundary `Face` does not carry, and on a decomposed mesh it is really a
-//! halo *wrap*, not a ghost fill (see FIELD's plan §10). It returns with the
-//! structured multi-layer ghost fill (the viscous pass); the owner-only BCs below
-//! cover every other compressible case and the Sod/cylinder validations.
+//! Periodic faces are handled as a FIELD-style forward halo wrap: registered
+//! forward fields are packed from the opposite owned slab and unpacked into the
+//! ghost slab before the owner-only physical BC fill runs.
 
 use cfd_eos::{Eos, EosResource};
 use cfd_state::{CfdState, ConsVar, PrimVar};
-use field_core::{BoundarySide, FieldRegistry, FvMesh};
+use field_core::{BoundarySide, FieldRegistry, FvMesh, StructuredMesh};
 use grass_app::prelude::*;
 use grass_scheduler::Res;
 use std::sync::Arc;
@@ -29,6 +25,9 @@ use std::sync::Arc;
 /// owner state, which [`BoundarySide`] the face lies on, and the EOS.
 pub trait BoundaryCondition: Send + Sync {
     fn ghost(&self, interior: &ConsVar, side: BoundarySide, eos: &dyn Eos) -> ConsVar;
+    fn is_periodic(&self) -> bool {
+        false
+    }
     fn name(&self) -> &'static str {
         "<unnamed>"
     }
@@ -44,6 +43,25 @@ impl BoundaryCondition for SupersonicOutflow {
     }
     fn name(&self) -> &'static str {
         "SupersonicOutflow"
+    }
+}
+
+/// Periodic side marker.
+///
+/// Unlike owner-only physical BCs, this does not synthesize a state from the
+/// adjacent owner cell. Use [`StructuredBoundaryPlugin`] (or call
+/// [`periodic_wrap_system`] before [`boundary_system`]) so the opposite owned slab
+/// is copied through FIELD's forward pack/unpack path into the ghost slab.
+pub struct Periodic;
+impl BoundaryCondition for Periodic {
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, _eos: &dyn Eos) -> ConsVar {
+        *interior
+    }
+    fn is_periodic(&self) -> bool {
+        true
+    }
+    fn name(&self) -> &'static str {
+        "Periodic"
     }
 }
 
@@ -188,6 +206,10 @@ impl BoundaryRegistry {
     pub fn get(&self, side: BoundarySide) -> &dyn BoundaryCondition {
         &*self.sides[side as usize]
     }
+
+    pub fn is_periodic(&self, side: BoundarySide) -> bool {
+        self.get(side).is_periodic()
+    }
 }
 
 // ─── Plugin + system ─────────────────────────────────────────────────────────
@@ -228,6 +250,114 @@ impl<M: field_core::FvMesh> Plugin for BoundaryPlugin<M> {
     }
 }
 
+/// Structured-grid boundary plugin that supports [`Periodic`] sides.
+///
+/// It first fills periodic ghost slabs by wrapping all forward-registered FIELD
+/// data, then applies the owner-only BC fill on non-periodic physical sides.
+pub struct StructuredBoundaryPlugin<M: field_core::StructuredMesh = field_core::UniformMesh> {
+    registry: BoundaryRegistry,
+    _marker: std::marker::PhantomData<fn() -> M>,
+}
+
+impl<M: field_core::StructuredMesh> Default for StructuredBoundaryPlugin<M> {
+    fn default() -> Self {
+        Self { registry: BoundaryRegistry::default(), _marker: std::marker::PhantomData }
+    }
+}
+
+impl<M: field_core::StructuredMesh> StructuredBoundaryPlugin<M> {
+    pub fn new(registry: BoundaryRegistry) -> Self {
+        Self { registry, _marker: std::marker::PhantomData }
+    }
+}
+
+impl<M: field_core::StructuredMesh> Plugin for StructuredBoundaryPlugin<M> {
+    fn build(&self, app: &mut App) {
+        app.add_resource(self.registry.clone());
+        app.add_update_system(periodic_wrap_system::<M>, field_core::MeshScheduleSet::Boundary);
+        app.add_update_system(boundary_system::<M>, field_core::MeshScheduleSet::Boundary);
+    }
+
+    fn provides(&self) -> Vec<&str> {
+        vec!["boundary_conditions"]
+    }
+
+    fn requires(&self) -> Vec<&str> {
+        vec!["cfd_state", "eos", "mesh"]
+    }
+}
+
+/// Wrap periodic structured ghost slabs using FIELD's forward pack/unpack
+/// semantics. Only side slabs are filled; face-based FVM fluxes and Cartesian
+/// reconstruction read these axis ghosts, while corners stay outside the current
+/// FIELD face-halo contract.
+pub fn periodic_wrap_system<M: StructuredMesh>(
+    mesh: Res<M>,
+    reg: Res<FieldRegistry>,
+    bcs: Res<BoundaryRegistry>,
+) {
+    if reg.forward_size() == 0 {
+        return;
+    }
+
+    let dims = mesh.dims();
+    let totals = mesh.total_dims();
+    let ng = mesh.n_ghost();
+    for axis in 0..3 {
+        if dims[axis] == 0 {
+            continue;
+        }
+        let lo = BoundarySide::from_index((2 * axis) as u32).expect("valid boundary side");
+        let hi = BoundarySide::from_index((2 * axis + 1) as u32).expect("valid boundary side");
+        if bcs.is_periodic(lo) {
+            wrap_side(&*mesh, &*reg, axis, false, dims, totals, ng);
+        }
+        if bcs.is_periodic(hi) {
+            wrap_side(&*mesh, &*reg, axis, true, dims, totals, ng);
+        }
+    }
+}
+
+fn wrap_side<M: StructuredMesh>(
+    mesh: &M,
+    reg: &FieldRegistry,
+    axis: usize,
+    high_side: bool,
+    dims: [usize; 3],
+    totals: [usize; 3],
+    ng: usize,
+) {
+    let other_a = (axis + 1) % 3;
+    let other_b = (axis + 2) % 3;
+    let per = reg.forward_size();
+    let mut raw = [0usize; 3];
+    let mut src_raw = [0usize; 3];
+    let mut buf = Vec::with_capacity(per);
+    for g in 0..ng {
+        if high_side {
+            raw[axis] = ng + dims[axis] + g;
+            src_raw[axis] = ng + (g % dims[axis]);
+        } else {
+            raw[axis] = g;
+            src_raw[axis] = ng + ((dims[axis] + g).wrapping_sub(ng) % dims[axis]);
+        }
+        for a in ng..totals[other_a] - ng {
+            raw[other_a] = a;
+            src_raw[other_a] = a;
+            for b in ng..totals[other_b] - ng {
+                raw[other_b] = b;
+                src_raw[other_b] = b;
+                let src = mesh.idx_raw(src_raw[0], src_raw[1], src_raw[2]);
+                let dst = mesh.idx_raw(raw[0], raw[1], raw[2]);
+                buf.clear();
+                reg.pack_forward_all(src, &mut buf);
+                let consumed = reg.unpack_forward_all(dst, &buf);
+                debug_assert_eq!(consumed, per, "periodic wrap size mismatch");
+            }
+        }
+    }
+}
+
 /// `Boundary`: fill each physical-boundary face's ghost from its BC. Faces with
 /// an MPI neighbor carry `patch == None` (filled by halo), so they are skipped.
 pub fn boundary_system<M: FvMesh>(
@@ -241,6 +371,9 @@ pub fn boundary_system<M: FvMesh>(
     mesh.for_each_face(&mut |f| {
         if let Some(p) = f.patch {
             let side = BoundarySide::from_index(p).expect("valid boundary side");
+            if bcs.is_periodic(side) {
+                return;
+            }
             let interior = state.u[f.owner];
             state.u[f.other] = bcs.get(side).ghost(&interior, side, eos);
         }
@@ -295,5 +428,54 @@ mod tests {
         assert_eq!(reg.get(BoundarySide::XHi).name(), "SupersonicOutflow");
         assert_eq!(reg.get(BoundarySide::YLo).name(), "Symmetry");
         assert_eq!(reg.get(BoundarySide::YHi).name(), "Symmetry");
+    }
+
+    #[test]
+    fn periodic_is_a_registry_marker() {
+        let reg = BoundaryRegistry::default().with_axis(0, Periodic);
+        assert!(reg.is_periodic(BoundarySide::XLo));
+        assert!(reg.is_periodic(BoundarySide::XHi));
+        assert_eq!(reg.get(BoundarySide::XLo).name(), "Periodic");
+        assert!(!reg.is_periodic(BoundarySide::YLo));
+    }
+
+    #[test]
+    fn periodic_wrap_copies_opposite_owned_slab_through_registry() {
+        use field_core::{StructuredMesh, UniformMesh, UniformMeshConfig};
+
+        let mesh = UniformMesh::from_config(&UniformMeshConfig {
+            nx: 4,
+            ny: 1,
+            nz: 1,
+            ng: 2,
+            bounds_lo: [0.0, 0.0, 0.0],
+            bounds_hi: [1.0, 1.0, 1.0],
+            y_edges: None,
+            z_edges: None,
+        });
+        let mut registry = FieldRegistry::new();
+        registry.register(CfdState::default());
+        registry.resize_all(mesh.n_cells_total());
+        {
+            let mut state = registry.get_mut::<CfdState>().unwrap();
+            for i in 0..4 {
+                let c = mesh.idx(i, 0, 0);
+                state.u[c] = ConsVar::new((10 + i) as f64, 0.0, 0.0, 0.0, 0.0);
+            }
+        }
+
+        let dims = mesh.dims();
+        let totals = mesh.total_dims();
+        let ng = mesh.n_ghost();
+        wrap_side(&mesh, &registry, 0, false, dims, totals, ng);
+        wrap_side(&mesh, &registry, 0, true, dims, totals, ng);
+
+        let state = registry.get::<CfdState>().unwrap();
+        let j = ng;
+        let k = ng;
+        assert_eq!(state.u[mesh.idx_raw(0, j, k)].rho, 12.0);
+        assert_eq!(state.u[mesh.idx_raw(1, j, k)].rho, 13.0);
+        assert_eq!(state.u[mesh.idx_raw(6, j, k)].rho, 10.0);
+        assert_eq!(state.u[mesh.idx_raw(7, j, k)].rho, 11.0);
     }
 }

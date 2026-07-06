@@ -1,6 +1,7 @@
 # dev_field_efvm Validation Examples
 
 - [isentropic_vortex](isentropic_vortex/README.md)
+- [periodic_advected_pulse](periodic_advected_pulse/README.md)
 - [cylinder_drag_validation](cylinder_drag_validation/README.md)
 - [sphere_drag_validation](sphere_drag_validation/README.md)
 - [sphere_drag_resolved](sphere_drag_resolved/README.md)

@@ -88,6 +88,14 @@ def main():
         1.0,
         "First-order HLLC/Godunov vortex gate: fitted order 0.889, PASS against the design-order band.",
     )
+    convergence_plot(
+        "periodic_advected_pulse",
+        "Periodic Advected Pulse",
+        [40, 80, 160],
+        [1.491960e-2, 8.918114e-3, 4.986845e-3],
+        1.0,
+        "Periodic FIELD wrap gate: fitted order 0.791 and max mass drift 3.035e-14, PASS.",
+    )
     bar_plot(
         "cylinder_drag_validation",
         "Cylinder Drag Re=20",
@@ -176,6 +184,7 @@ def main():
     lines = ["# dev_field_efvm Validation Examples", ""]
     for case in [
         "isentropic_vortex",
+        "periodic_advected_pulse",
         "cylinder_drag_validation",
         "sphere_drag_validation",
         "sphere_drag_resolved",

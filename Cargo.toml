@@ -105,6 +105,10 @@ name = "isentropic_vortex"
 path = "examples/isentropic_vortex/main.rs"
 
 [[bin]]
+name = "periodic_advected_pulse"
+path = "examples/periodic_advected_pulse/main.rs"
+
+[[bin]]
 name = "poisson_mms"
 path = "examples/poisson_mms/main.rs"
 
