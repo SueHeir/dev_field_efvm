@@ -210,6 +210,27 @@ impl BoundaryRegistry {
     pub fn is_periodic(&self, side: BoundarySide) -> bool {
         self.get(side).is_periodic()
     }
+
+    /// Reject a half-periodic axis before a solver can step it.
+    ///
+    /// A periodic boundary is a paired topological identification: setting it
+    /// on only one side would wrap one ghost slab and leave the opposite side
+    /// to an unrelated physical BC. [`with_axis`](Self::with_axis) configures
+    /// a valid pair atomically; this check makes the more general
+    /// [`with`](Self::with)/[`set`](Self::set) API fail clearly when it is used
+    /// to build an invalid pair.
+    pub fn validate_periodic_pairs(&self) -> Result<(), String> {
+        for axis in 0..3 {
+            let lo = BoundarySide::from_index((2 * axis) as u32).expect("valid boundary side");
+            let hi = BoundarySide::from_index((2 * axis + 1) as u32).expect("valid boundary side");
+            if self.is_periodic(lo) != self.is_periodic(hi) {
+                return Err(format!(
+                    "periodic boundary on axis {axis} requires both {lo:?} and {hi:?}; use BoundaryRegistry::with_axis(axis, Periodic)"
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 // ─── Plugin + system ─────────────────────────────────────────────────────────
@@ -273,6 +294,9 @@ impl<M: field_core::StructuredMesh> StructuredBoundaryPlugin<M> {
 
 impl<M: field_core::StructuredMesh> Plugin for StructuredBoundaryPlugin<M> {
     fn build(&self, app: &mut App) {
+        self.registry
+            .validate_periodic_pairs()
+            .unwrap_or_else(|message| panic!("invalid periodic boundary configuration: {message}"));
         app.add_resource(self.registry.clone());
         app.add_update_system(periodic_wrap_system::<M>, field_core::MeshScheduleSet::Boundary);
         app.add_update_system(boundary_system::<M>, field_core::MeshScheduleSet::Boundary);
@@ -437,6 +461,31 @@ mod tests {
         assert!(reg.is_periodic(BoundarySide::XHi));
         assert_eq!(reg.get(BoundarySide::XLo).name(), "Periodic");
         assert!(!reg.is_periodic(BoundarySide::YLo));
+    }
+
+    #[test]
+    fn periodic_xlo_without_xhi_is_rejected() {
+        let reg = BoundaryRegistry::default().with(BoundarySide::XLo, Periodic);
+        let err = reg.validate_periodic_pairs().unwrap_err();
+        assert!(err.contains("XLo"));
+        assert!(err.contains("XHi"));
+    }
+
+    #[test]
+    fn periodic_xhi_without_xlo_is_rejected() {
+        let reg = BoundaryRegistry::default().with(BoundarySide::XHi, Periodic);
+        let err = reg.validate_periodic_pairs().unwrap_err();
+        assert!(err.contains("XLo"));
+        assert!(err.contains("XHi"));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid periodic boundary configuration")]
+    fn structured_plugin_rejects_xlo_only_before_stepping() {
+        let mut app = App::new();
+        app.add_plugins(StructuredBoundaryPlugin::<field_core::UniformMesh>::new(
+            BoundaryRegistry::default().with(BoundarySide::XLo, Periodic),
+        ));
     }
 
     #[test]
