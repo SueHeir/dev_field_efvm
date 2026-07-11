@@ -1,0 +1,28 @@
+# Periodic advected-pulse validation for cfd_boundary.
+#
+# A smooth density pulse at constant pressure and velocity is an exact Euler
+# entropy/contact wave. The pulse crosses the periodic x boundary; the
+# executable checks mass conservation and first-order accuracy.
+
+[pulse]
+domain    = 1.0
+center    = 0.85
+sigma     = 0.08
+amplitude = 0.2
+gamma     = 1.4
+velocity  = 1.0
+pressure  = 1.0
+
+[run]
+t_final    = 0.3
+cfl        = 0.45
+scheme     = "hllc"
+integrator = "rk3"
+
+[convergence]
+resolutions  = [40, 80, 160]
+design_order = 1.0
+order_tol    = 0.25
+
+[conservation]
+mass_tol = 1.0e-12
