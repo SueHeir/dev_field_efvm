@@ -10,7 +10,10 @@
 //!
 //! Periodic faces are handled as a FIELD-style forward halo wrap: registered
 //! forward fields are packed from the opposite owned slab and unpacked into the
-//! ghost slab before the owner-only physical BC fill runs.
+//! ghost slab before the owner-only physical BC fill runs.  This implementation
+//! deliberately rejects a decomposed mesh: its local opposite slab is not the
+//! global periodic neighbour.  A rank-wrap halo plan is required before periodic
+//! operation on more than one rank can be supported safely.
 
 use cfd_eos::{Eos, EosResource};
 use cfd_state::{CfdState, ConsVar, PrimVar};
@@ -271,10 +274,15 @@ impl<M: field_core::FvMesh> Plugin for BoundaryPlugin<M> {
     }
 }
 
-/// Structured-grid boundary plugin that supports [`Periodic`] sides.
+/// Structured-grid boundary plugin that supports [`Periodic`] sides on a
+/// serial mesh.
 ///
 /// It first fills periodic ghost slabs by wrapping all forward-registered FIELD
 /// data, then applies the owner-only BC fill on non-periodic physical sides.
+/// On a decomposed mesh it fails before the flux/update phase rather than
+/// silently wrapping rank-local data.  FIELD's ordinary halo plan joins only
+/// adjacent subdomains; it does not yet carry the far-rank periodic links this
+/// operation needs.
 pub struct StructuredBoundaryPlugin<M: field_core::StructuredMesh = field_core::UniformMesh> {
     registry: BoundaryRegistry,
     _marker: std::marker::PhantomData<fn() -> M>,
@@ -320,6 +328,8 @@ pub fn periodic_wrap_system<M: StructuredMesh>(
     reg: Res<FieldRegistry>,
     bcs: Res<BoundaryRegistry>,
 ) {
+    validate_periodic_mesh(&*mesh, &*bcs)
+        .unwrap_or_else(|message| panic!("unsupported periodic boundary configuration: {message}"));
     if reg.forward_size() == 0 {
         return;
     }
@@ -340,6 +350,26 @@ pub fn periodic_wrap_system<M: StructuredMesh>(
             wrap_side(&*mesh, &*reg, axis, true, dims, totals, ng);
         }
     }
+}
+
+/// Validate that a periodic registry can be applied to `mesh` without making a
+/// rank-local wrap masquerade as a global periodic boundary.
+///
+/// A serial [`field_core::UniformMesh`] has no halo links, so its opposite owned
+/// slab is the true opposite domain slab.  A decomposed mesh has at least one
+/// FIELD halo link; the corresponding periodic data may live on a non-adjacent
+/// rank, which this boundary crate does not exchange.  Rejecting it is preferable
+/// to evolving a different, silently non-periodic problem.
+pub fn validate_periodic_mesh<M: FvMesh>(mesh: &M, bcs: &BoundaryRegistry) -> Result<(), String> {
+    let any_periodic = (0..6)
+        .any(|side| bcs.is_periodic(BoundarySide::from_index(side).expect("valid boundary side")));
+    if any_periodic && !mesh.halo_plan().is_serial() {
+        return Err(
+            "periodic structured boundaries are serial-only: FIELD has ordinary adjacent-rank halo links, but no periodic rank-wrap exchange; use one rank or provide a mesh with periodic halo links"
+                .to_owned(),
+        );
+    }
+    Ok(())
 }
 
 fn wrap_side<M: StructuredMesh>(
@@ -526,5 +556,34 @@ mod tests {
         assert_eq!(state.u[mesh.idx_raw(1, j, k)].rho, 13.0);
         assert_eq!(state.u[mesh.idx_raw(6, j, k)].rho, 10.0);
         assert_eq!(state.u[mesh.idx_raw(7, j, k)].rho, 11.0);
+    }
+
+    #[test]
+    fn periodic_wrap_rejects_a_decomposed_mesh_before_any_wrap() {
+        use field_core::{FvMesh, UniformMesh, UniformMeshConfig};
+
+        let mesh = UniformMesh::from_config_decomposed(
+            &UniformMeshConfig {
+                nx: 8,
+                ny: 1,
+                nz: 1,
+                ng: 2,
+                bounds_lo: [0.0, 0.0, 0.0],
+                bounds_hi: [1.0, 1.0, 1.0],
+                y_edges: None,
+                z_edges: None,
+            },
+            [2, 1, 1],
+            [0, 0, 0],
+        );
+        assert!(
+            !mesh.halo_plan().is_serial(),
+            "test fixture must model a rank partition"
+        );
+        let err =
+            validate_periodic_mesh(&mesh, &BoundaryRegistry::default().with_axis(0, Periodic))
+                .unwrap_err();
+        assert!(err.contains("serial-only"));
+        assert!(err.contains("rank-wrap"));
     }
 }
