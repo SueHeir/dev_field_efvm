@@ -30,13 +30,13 @@ repository = "https://github.com/SueHeir/dev_field_efvm"
 
 # FIELD substrate + GRASS framework, sibling checkouts. Mirrors how DIRT path-deps SOIL.
 [workspace.dependencies]
-field_core = { path = "../field/crates/field_core" }
-field_amr = { path = "../field/crates/field_amr" }
-field_p4est = { path = "../field/crates/field_p4est" }
-grass_app = { path = "../grass/crates/grass_app" }
-grass_scheduler = { path = "../grass/crates/grass_scheduler" }
-grass_mpi = { path = "../grass/crates/grass_mpi" }
-grass_io = { path = "../grass/crates/grass_io" }
+field_core = { git = "https://github.com/SueHeir/field.git", branch = "main" }
+field_amr = { git = "https://github.com/SueHeir/field.git", branch = "main" }
+field_p4est = { git = "https://github.com/SueHeir/field.git", branch = "main" }
+grass_app = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
+grass_scheduler = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
+grass_mpi = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
+grass_io = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 serde = { version = "1", features = ["derive"] }
 # Internal physics crates.
 cfd_state = { path = "crates/cfd_state" }
