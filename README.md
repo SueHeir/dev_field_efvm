@@ -25,6 +25,21 @@ and write the missing physics as systems. Declarative TOML cases exist for some
 examples, but they are a convenience layer over the Rust code, not the main model
 of use.
 
+## From a CFD App to a coupled CFD participant
+
+The CFD code stays an ordinary GRASS App: FIELD resources hold the mesh and
+fields, and CFD plugins schedule fluxes, boundaries, and integration. A coupling
+repo mounts that App beside another solver and owns the exchange systems; this
+repo does not acquire a particle dependency or contain DEM/SPH knowledge.
+
+See the complete solver construction in the DEM-CFD lesson's
+[`setup.rs`](https://github.com/SueHeir/dev_couple_dem_cfd/blob/main/examples/hello_dem_cfd/setup.rs)
+and the coupling-only composition in
+[`main.rs`](https://github.com/SueHeir/dev_couple_dem_cfd/blob/main/examples/hello_dem_cfd/main.rs).
+For split MPI, the same binary is assigned a CFD role by TOML and FIELD's
+partition directory maps positions to CFD owners; the runnable 3+2 test is
+[`routed_3x2.rs`](https://github.com/SueHeir/dev_couple_dem_cfd/blob/main/crates/dem_cfd/tests/routed_3x2.rs).
+
 ## What Is Here
 
 - Compressible Euler/Navier-Stokes finite-volume pieces on FIELD.
