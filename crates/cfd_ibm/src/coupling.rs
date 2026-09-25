@@ -303,17 +303,65 @@ pub fn terminal_velocity_stokes(rho_p: f64, rho_f: f64, radius: f64, g: f64, mu:
 
 /// Locate the mesh cell (raw, ghost-inclusive index) containing `p`, or `None`
 /// if `p` is outside the interior.
+///
+/// `locate` brackets `p` between the two nearest cell *centres* on each axis
+/// (the trilinear stencil), so its `lo` is the containing cell only when `p`
+/// lies in the upper half of that cell. The containing cell is whichever of
+/// `lo` / `lo + 1` has the shared face on the correct side of `p`; the face is
+/// placed from the cell's own centroid and width so stretched axes are exact.
 fn cell_of<M: StructuredMesh>(mesh: &M, p: Vec3) -> Option<usize> {
-    let [ni, nj, nk] = mesh.dims();
+    let dims = mesh.dims();
     let ng = mesh.n_ghost();
-    // Nearest interior cell by centroid scan on each axis is overkill; use the
-    // mesh's own point locate and clamp to interior.
     let (lo, _t) = mesh.locate(p)?;
-    // `locate` returns the low corner of the bracketing cell block in raw
-    // indices; clamp into the interior range so a particle sitting on a cell
-    // face still lands in a real interior cell.
+    let mut raw = [0usize; 3];
+    for axis in 0..3 {
+        raw[axis] = containing_along(mesh, axis, lo[axis], p[axis], dims[axis], ng);
+    }
+    // Clamp into the interior range so a particle in the half-cell next to the
+    // domain boundary still lands in a real interior cell.
     let clamp = |v: usize, n: usize| v.max(ng).min(ng + n - 1);
-    Some(mesh.idx_raw(clamp(lo[0], ni), clamp(lo[1], nj), clamp(lo[2], nk)))
+    Some(mesh.idx_raw(
+        clamp(raw[0], dims[0]),
+        clamp(raw[1], dims[1]),
+        clamp(raw[2], dims[2]),
+    ))
+}
+
+/// Pick the containing raw index along `axis` from the centre bracket `lo`,
+/// `lo + 1` (see [`cell_of`]). Uses the interior cell of the pair for the face
+/// position, since `spacing` is defined on interior indices only.
+fn containing_along<M: StructuredMesh>(
+    mesh: &M,
+    axis: usize,
+    lo: usize,
+    x: f64,
+    n: usize,
+    ng: usize,
+) -> usize {
+    let centre = |r: usize| {
+        let mut ijk = [ng; 3];
+        ijk[axis] = r;
+        mesh.cell_centroid(mesh.idx_raw(ijk[0], ijk[1], ijk[2]))[axis]
+    };
+    let interior = |r: usize| r >= ng && r < ng + n;
+    let hi = lo + 1;
+    if interior(hi) {
+        let face = centre(hi) - 0.5 * mesh.spacing(axis, hi - ng);
+        if x >= face {
+            hi
+        } else {
+            lo
+        }
+    } else if interior(lo) {
+        let face = centre(lo) + 0.5 * mesh.spacing(axis, lo - ng);
+        if x < face {
+            lo
+        } else {
+            hi
+        }
+    } else {
+        lo
+    }
 }
 
 /// Per-cell void fraction field `ε` for a point-particle deposit: each particle's
@@ -470,5 +518,35 @@ mod tests {
             (v_num / v_stokes - 1.0).abs() < 0.05,
             "v_num {v_num} vs stokes {v_stokes} (Re={re})"
         );
+    }
+
+    #[test]
+    fn cell_of_returns_the_cell_that_contains_the_point() {
+        use field_core::{UniformMesh, UniformMeshConfig};
+        // 4 x 3 x 2 interior cells of width 0.1 m on [0, 0.4] x [0, 0.3] x [0, 0.2].
+        let mesh = UniformMesh::from_config(&UniformMeshConfig {
+            nx: 4,
+            ny: 3,
+            nz: 2,
+            ng: 1,
+            bounds_lo: [0.0, 0.0, 0.0],
+            bounds_hi: [0.4, 0.3, 0.2],
+            y_edges: None,
+            z_edges: None,
+        });
+        let ng = mesh.n_ghost();
+        // Points in the lower half, upper half and exact centre of cell (2, 1, 0),
+        // plus the lower half of the first interior cell next to the boundary.
+        let cases = [
+            ([0.21, 0.11, 0.01], [2, 1, 0]),
+            ([0.29, 0.19, 0.09], [2, 1, 0]),
+            ([0.25, 0.15, 0.05], [2, 1, 0]),
+            ([0.01, 0.01, 0.01], [0, 0, 0]),
+            ([0.39, 0.29, 0.19], [3, 2, 1]),
+        ];
+        for (p, [i, j, k]) in cases {
+            let want = mesh.idx_raw(i + ng, j + ng, k + ng);
+            assert_eq!(cell_of(&mesh, p), Some(want), "point {p:?}");
+        }
     }
 }
