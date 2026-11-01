@@ -654,7 +654,10 @@ the cheapest path to a validated physics result (Sod by step 4).
    emit for periodic directions. *Open:* either FIELD's `UniformMesh` grows
    periodic halo links (substrate change), or `cfd_boundary` keeps a structured
    periodic ghost-copy for M1. Lean on the latter for M1, request the former for
-   M2.
+   M2. **RESOLVED:** FIELD's `UniformMesh` now emits periodic halo links from a
+   `MeshPeriodicity` resource, which `StructuredBoundaryPlugin` adds for
+   `Periodic` axes; the local ghost-copy is gone and `tests/periodic_mpi.rs`
+   checks 1–4 ranks agree.
 6. **Scheduler loop construct for RK substages.** §6.2 assumes GRASS's scheduler
    can re-run a band of phases N times per iter (the schedule-set doc promises
    "loop constructs"). **RESOLVED:** GRASS provides
