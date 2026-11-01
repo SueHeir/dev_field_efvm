@@ -30,10 +30,9 @@ repository = "https://github.com/SueHeir/dev_field_efvm"
 
 # FIELD substrate + GRASS framework, sibling checkouts. Mirrors how DIRT path-deps SOIL.
 [workspace.dependencies]
-# FIELD is on the field#1 branch for MeshPeriodicity; switch back to main once it merges.
-field_core = { git = "https://github.com/SueHeir/field.git", branch = "claude/project-thread-0q5pmy" }
-field_amr = { git = "https://github.com/SueHeir/field.git", branch = "claude/project-thread-0q5pmy" }
-field_p4est = { git = "https://github.com/SueHeir/field.git", branch = "claude/project-thread-0q5pmy" }
+field_core = { git = "https://github.com/SueHeir/field.git", branch = "main" }
+field_amr = { git = "https://github.com/SueHeir/field.git", branch = "main" }
+field_p4est = { git = "https://github.com/SueHeir/field.git", branch = "main" }
 grass_app = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 grass_scheduler = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 grass_mpi = { git = "https://github.com/SueHeir/grass.git", branch = "main" }

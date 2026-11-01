@@ -224,7 +224,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "field_amr"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=claude%2Fproject-thread-0q5pmy#ab6ad4b76fc0425c5aaed36625bca128ecf6d1ca"
+source = "git+https://github.com/SueHeir/field.git?branch=main#57a13321c39038932f8c6d499c01f1507dd132c4"
 dependencies = [
  "field_core",
 ]
@@ -232,7 +232,7 @@ dependencies = [
 [[package]]
 name = "field_core"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=claude%2Fproject-thread-0q5pmy#ab6ad4b76fc0425c5aaed36625bca128ecf6d1ca"
+source = "git+https://github.com/SueHeir/field.git?branch=main#57a13321c39038932f8c6d499c01f1507dd132c4"
 dependencies = [
  "field_derive",
  "grass_app",
@@ -245,7 +245,7 @@ dependencies = [
 [[package]]
 name = "field_derive"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=claude%2Fproject-thread-0q5pmy#ab6ad4b76fc0425c5aaed36625bca128ecf6d1ca"
+source = "git+https://github.com/SueHeir/field.git?branch=main#57a13321c39038932f8c6d499c01f1507dd132c4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -255,7 +255,7 @@ dependencies = [
 [[package]]
 name = "field_p4est"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=claude%2Fproject-thread-0q5pmy#ab6ad4b76fc0425c5aaed36625bca128ecf6d1ca"
+source = "git+https://github.com/SueHeir/field.git?branch=main#57a13321c39038932f8c6d499c01f1507dd132c4"
 dependencies = [
  "cc",
  "field_core",
@@ -277,7 +277,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 [[package]]
 name = "grass_app"
 version = "0.1.1"
-source = "git+https://github.com/SueHeir/grass.git?branch=main#becbc61ec714c1923986815d22b2779a46a9507f"
+source = "git+https://github.com/SueHeir/grass.git?branch=main#a8006e0313ef82d8a2c6111d34404bdfc5488793"
 dependencies = [
  "downcast-rs",
  "grass_scheduler",
@@ -286,7 +286,7 @@ dependencies = [
 [[package]]
 name = "grass_derive"
 version = "0.1.1"
-source = "git+https://github.com/SueHeir/grass.git?branch=main#becbc61ec714c1923986815d22b2779a46a9507f"
+source = "git+https://github.com/SueHeir/grass.git?branch=main#a8006e0313ef82d8a2c6111d34404bdfc5488793"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -310,7 +310,7 @@ dependencies = [
 [[package]]
 name = "grass_mpi"
 version = "0.1.1"
-source = "git+https://github.com/SueHeir/grass.git?branch=main#becbc61ec714c1923986815d22b2779a46a9507f"
+source = "git+https://github.com/SueHeir/grass.git?branch=main#a8006e0313ef82d8a2c6111d34404bdfc5488793"
 dependencies = [
  "libffi-sys",
  "mpi",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "grass_scheduler"
 version = "0.1.1"
-source = "git+https://github.com/SueHeir/grass.git?branch=main#becbc61ec714c1923986815d22b2779a46a9507f"
+source = "git+https://github.com/SueHeir/grass.git?branch=main#a8006e0313ef82d8a2c6111d34404bdfc5488793"
 dependencies = [
  "grass_derive",
 ]
