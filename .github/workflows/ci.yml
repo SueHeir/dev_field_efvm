@@ -41,10 +41,10 @@ jobs:
           repository: SueHeir/soil
           path: soil
 
-      - name: Install OpenMPI
+      - name: Install OpenMPI and p4est
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin
+          sudo apt-get install -y libopenmpi-dev openmpi-bin libp4est-dev
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -59,6 +59,15 @@ jobs:
       - name: Test workspace
         working-directory: dev_field_efvm
         run: cargo test -p cfd_state -p cfd_eos -p cfd_riemann -p cfd_solver -p cfd_boundary -p cfd_ibm -p cfd_output
+
+      # Periodic boundaries are FIELD halo links, so they must give the same
+      # answer on any rank count: re-launches itself under mpirun on 1-4 ranks.
+      # (The mpi_backend feature also pulls in field_p4est, hence P4EST_PREFIX.)
+      - name: Periodic pulse across rank counts (mpirun)
+        working-directory: dev_field_efvm
+        env:
+          P4EST_PREFIX: /usr
+        run: cargo test --release --features mpi_backend --test periodic_mpi
 
       # Every push/PR runs the fast smoke gates; the nightly `schedule` run (and
       # a manual workflow_dispatch) runs `full`, which adds the heavy cylinder

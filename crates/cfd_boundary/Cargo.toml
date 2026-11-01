@@ -12,3 +12,6 @@ grass_app.workspace = true
 grass_scheduler.workspace = true
 cfd_state.workspace = true
 cfd_eos.workspace = true
+
+[dev-dependencies]
+grass_mpi.workspace = true
