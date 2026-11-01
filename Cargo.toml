@@ -37,6 +37,7 @@ grass_app = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 grass_scheduler = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 grass_mpi = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 grass_io = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
+grass_linalg = { git = "https://github.com/SueHeir/grass.git", branch = "main" }
 serde = { version = "1", features = ["derive"] }
 # Internal physics crates.
 cfd_state = { path = "crates/cfd_state" }
@@ -73,6 +74,7 @@ grass_app.workspace = true
 grass_scheduler.workspace = true
 grass_mpi = { workspace = true, optional = true }
 grass_io.workspace = true
+grass_linalg.workspace = true
 serde.workspace = true
 cfd_state.workspace = true
 cfd_eos.workspace = true

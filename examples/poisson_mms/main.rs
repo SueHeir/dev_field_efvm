@@ -2,8 +2,9 @@
 //!
 //! This example validates that the FIELD substrate exposes enough equation-
 //! agnostic structure to host long-range/global mesh physics above it. The solver
-//! code lives here, in the consumer example: `field_core` supplies only
-//! `CellVector`, `LinearOperator`, `Vector`, and `MeshHierarchy`.
+//! stencil and multigrid cycle live here, in the consumer example: `field_core`
+//! supplies `CellVector` and `MeshHierarchy`, and the preconditioned CG itself is
+//! GRASS's shared `grass_linalg::preconditioned_conjugate_gradient`.
 //!
 //! The manufactured reference is analytic, not a self-comparison:
 //!
@@ -24,8 +25,10 @@
 use std::f64::consts::PI;
 
 use field_core::{
-    CellVector, FvMesh, LinearOperator, MeshHierarchy, StructuredMesh, UniformMesh,
-    UniformMeshConfig, Vector,
+    CellVector, FvMesh, MeshHierarchy, StructuredMesh, UniformMesh, UniformMeshConfig,
+};
+use grass_linalg::{
+    preconditioned_conjugate_gradient, LinearOperator, Preconditioner, SingleProcessComm,
 };
 use serde::Deserialize;
 
@@ -81,9 +84,8 @@ impl<'m> DirichletPoisson<'m> {
     }
 }
 
-impl<'m> LinearOperator for DirichletPoisson<'m> {
-    type Vector = CellVector;
-
+impl<'m> DirichletPoisson<'m> {
+    /// `y = A x` on owned cells.
     fn apply(&self, x: &CellVector, y: &mut CellVector) {
         let m = self.mesh;
         let d = m.dims();
@@ -226,10 +228,36 @@ fn v_cycle(
     smooth_jacobi(&op, b, x, cfg.jacobi_omega, cfg.post_smooth);
 }
 
-fn apply_preconditioner(hierarchy: &MeshHierarchy, r: &CellVector, cfg: &SolverCfg) -> CellVector {
-    let mut z = CellVector::zeros_like(r);
-    v_cycle(0, hierarchy, r, &mut z, cfg);
-    z
+/// The stencil seen by the shared solver: `grass_linalg` works on the full
+/// ghost-inclusive slice, with non-owned entries zero.
+impl LinearOperator for DirichletPoisson<'_> {
+    fn dimension(&self) -> usize {
+        self.mesh.n_cells_total()
+    }
+
+    fn apply(&self, x: &[f64], y: &mut [f64]) {
+        let mut xv = CellVector::from_mesh(self.mesh);
+        xv.as_mut_slice().copy_from_slice(x);
+        let mut yv = CellVector::zeros_like(&xv);
+        DirichletPoisson::apply(self, &xv, &mut yv);
+        y.copy_from_slice(yv.as_slice());
+    }
+}
+
+/// One geometric-multigrid V-cycle from a zero guess, as a PCG preconditioner.
+struct VCycle<'a> {
+    hierarchy: &'a MeshHierarchy,
+    cfg: &'a SolverCfg,
+}
+
+impl Preconditioner for VCycle<'_> {
+    fn apply(&self, r: &[f64], z: &mut [f64]) {
+        let mut rv = CellVector::from_mesh(self.hierarchy.finest());
+        rv.as_mut_slice().copy_from_slice(r);
+        let mut zv = CellVector::zeros_like(&rv);
+        v_cycle(0, self.hierarchy, &rv, &mut zv, self.cfg);
+        z.copy_from_slice(zv.as_slice());
+    }
 }
 
 fn pcg(
@@ -239,40 +267,18 @@ fn pcg(
     cfg: &SolverCfg,
 ) -> (CellVector, usize, f64) {
     let mut x = CellVector::zeros_like(b);
-    let mut r = residual(op, b, &x);
-    let b_norm = b.norm().max(1e-300);
-    let mut rel = r.norm() / b_norm;
-    if rel <= cfg.relative_residual_tol {
-        return (x, 0, rel);
-    }
-
-    let mut z = apply_preconditioner(hierarchy, &r, cfg);
-    let mut p = CellVector::zeros_like(&z);
-    p.copy_from(&z);
-    let mut rz = r.dot(&z);
-    let mut ap = CellVector::zeros_like(b);
-
-    for iter in 1..=cfg.max_iters {
-        op.apply(&p, &mut ap);
-        let denom = p.dot(&ap);
-        assert!(denom > 0.0, "PCG encountered non-SPD search direction");
-        let alpha = rz / denom;
-        x.axpy(alpha, &p);
-        r.axpy(-alpha, &ap);
-        rel = r.norm() / b_norm;
-        if rel <= cfg.relative_residual_tol {
-            return (x, iter, rel);
-        }
-
-        z = apply_preconditioner(hierarchy, &r, cfg);
-        let rz_new = r.dot(&z);
-        let beta = rz_new / rz;
-        p.scale(beta);
-        p.axpy(1.0, &z);
-        rz = rz_new;
-    }
-
-    (x, cfg.max_iters, rel)
+    let report = preconditioned_conjugate_gradient(
+        &SingleProcessComm::new(),
+        op,
+        &VCycle { hierarchy, cfg },
+        b.as_slice(),
+        x.as_mut_slice(),
+        cfg.max_iters,
+        |s| s.relative_residual() <= cfg.relative_residual_tol,
+    )
+    .expect("PCG encountered a non-SPD operator or preconditioner");
+    let rel = report.residual_norm / report.initial_residual_norm.max(1e-300);
+    (x, report.iterations, rel)
 }
 
 fn l2_error(mesh: &UniformMesh, domain: f64, x: &CellVector) -> f64 {
