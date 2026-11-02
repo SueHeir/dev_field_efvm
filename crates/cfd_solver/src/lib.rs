@@ -599,14 +599,20 @@ pub fn cfl_generic_system<M: FvMesh>(
 
 /// `Update`: advance the conserved state by one integrator substep, stepping the
 /// RK state machine and (on a completed step) the clock.
+///
+/// It also sets [`StepBoundary`](grass_app::StepBoundary), so a coupler can
+/// advance this solver by whole time steps (`grass_multi::advance_subapp`)
+/// without knowing how many substeps its integrator takes.
 pub fn update_system(
     reg: Res<FieldRegistry>,
     integ: Res<TimeIntegratorResource>,
     mut sstate: ResMut<SolverState>,
+    mut boundary: ResMut<grass_app::StepBoundary>,
 ) {
     let mut state = reg.expect_mut::<CfdState>("CfdState not registered");
     let result = integ.integrator().substep(&mut state, sstate.dt, sstate.rk_stage);
     sstate.rk_stage = result.next_stage;
+    boundary.completed_full_step = result.completed_step;
     if result.completed_step {
         sstate.step += 1;
         sstate.time += sstate.dt;
@@ -711,12 +717,32 @@ impl Plugin for CfdStatePlugin {
     }
 }
 
-/// Adds the [`EosResource`] (calorically-perfect air by default).
+/// Adds the [`EosResource`] for calorically-perfect air. Use [`GasPlugin`]
+/// for another ideal gas.
 pub struct IdealGasPlugin;
 
 impl Plugin for IdealGasPlugin {
     fn build(&self, app: &mut App) {
-        let gas = IdealGas::air();
+        GasPlugin(IdealGas::air()).build(app);
+    }
+    fn provides(&self) -> Vec<&str> {
+        vec!["eos"]
+    }
+}
+
+/// Adds the [`EosResource`] for a chosen calorically-perfect gas, so a case
+/// (or a coupled run) can pick its gas when it builds the App instead of
+/// replacing resources afterwards.
+///
+/// ```rust,ignore
+/// let gas = IdealGas { gamma: 5.0 / 3.0, ..IdealGas::air() };
+/// app.add_plugins(GasPlugin(gas));
+/// ```
+pub struct GasPlugin(pub IdealGas);
+
+impl Plugin for GasPlugin {
+    fn build(&self, app: &mut App) {
+        let gas = self.0;
         app.add_resource(gas); // concrete, for the viscous transport coefficients
         app.add_resource(EosResource(Arc::new(gas))); // dyn, for flux / boundary
         // Default transport = air's Sutherland μ(T). A case that targets a chosen
@@ -864,6 +890,7 @@ impl Plugin for IntegratorPlugin {
     fn build(&self, app: &mut App) {
         app.add_resource(TimeIntegratorResource(self.integrator.clone()));
         app.add_resource(SolverState::default());
+        app.add_resource(grass_app::StepBoundary::default());
     }
     fn provides(&self) -> Vec<&str> {
         vec!["time_integrator"]
