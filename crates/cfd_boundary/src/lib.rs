@@ -17,7 +17,9 @@
 
 use cfd_eos::{Eos, EosResource};
 use cfd_state::{CfdState, ConsVar, PrimVar};
-use field_core::{BoundarySide, FieldRegistry, FvMesh, MeshPeriodicity, StructuredMesh, Vec3};
+use field_core::{
+    BoundarySide, FieldRegistry, FvMesh, MeshPeriodicity, PatchId, StructuredMesh, Vec3,
+};
 use std::collections::HashMap;
 use grass_app::prelude::*;
 use grass_scheduler::Res;
@@ -34,8 +36,19 @@ pub trait BoundaryCondition: Send + Sync {
     /// state another code supplied for it through [`BoundaryInputs`]. The
     /// default ignores both and calls [`ghost`](Self::ghost), so an owner-only
     /// condition implements just that.
+    ///
+    /// A face on a patch that is not one of the six box sides (an
+    /// unstructured mesh's own patches) has no [`BoundarySide`], so a condition
+    /// used there must override this method.
     fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
-        self.ghost(interior, face.side, eos)
+        match face.side {
+            Some(side) => self.ghost(interior, side, eos),
+            None => panic!(
+                "boundary condition {} is side-only; implement ghost_at to use it on patch {}",
+                self.name(),
+                face.patch
+            ),
+        }
     }
     fn is_periodic(&self) -> bool {
         false
@@ -47,8 +60,11 @@ pub trait BoundaryCondition: Send + Sync {
 
 /// One physical-boundary face, as [`BoundaryCondition::ghost_at`] sees it.
 pub struct BoundaryFace<'a> {
-    /// Which side of the domain the face is on.
-    pub side: BoundarySide,
+    /// The mesh patch the face belongs to.
+    pub patch: PatchId,
+    /// Which side of the box the face is on, when the patch is one of the six
+    /// [`BoundarySide`]s.
+    pub side: Option<BoundarySide>,
     /// Face centroid in physical space.
     pub centroid: Vec3,
     /// Area-weighted outward normal.
@@ -57,6 +73,34 @@ pub struct BoundaryFace<'a> {
     pub ghost_cell: usize,
     /// The state another code supplied for this ghost cell, if any.
     pub outside: Option<&'a ConsVar>,
+}
+
+impl BoundaryFace<'_> {
+    /// Unit outward normal.
+    pub fn unit_normal(&self) -> Vec3 {
+        let n = self.area_normal;
+        let a = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+        [n[0] / a, n[1] / a, n[2] / a]
+    }
+}
+
+/// Anything that names a boundary patch: a structured [`BoundarySide`] or a raw
+/// [`PatchId`] from an unstructured mesh.
+pub trait PatchKey {
+    /// The patch id.
+    fn patch_id(self) -> PatchId;
+}
+
+impl PatchKey for BoundarySide {
+    fn patch_id(self) -> PatchId {
+        self as PatchId
+    }
+}
+
+impl PatchKey for PatchId {
+    fn patch_id(self) -> PatchId {
+        self
+    }
 }
 
 /// Outside states for ghost cells, by FIELD cell index, written by whatever
@@ -127,9 +171,17 @@ where
 
 /// Supersonic outflow / zero-gradient: copy the interior state into the ghost.
 pub struct SupersonicOutflow;
-impl BoundaryCondition for SupersonicOutflow {
-    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, _eos: &dyn Eos) -> ConsVar {
+impl SupersonicOutflow {
+    fn state(&self, interior: &ConsVar, _eos: &dyn Eos) -> ConsVar {
         *interior
+    }
+}
+impl BoundaryCondition for SupersonicOutflow {
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "SupersonicOutflow"
@@ -143,12 +195,20 @@ impl BoundaryCondition for SupersonicOutflow {
 /// the axis into the halo plan, so the `Halo` phase fills the ghost slab from
 /// the opposite side of the domain (on this rank or another).
 pub struct Periodic;
-impl BoundaryCondition for Periodic {
-    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, _eos: &dyn Eos) -> ConsVar {
+impl Periodic {
+    fn state(&self, interior: &ConsVar, _eos: &dyn Eos) -> ConsVar {
         *interior
+    }
+}
+impl BoundaryCondition for Periodic {
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn is_periodic(&self) -> bool {
         true
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "Periodic"
@@ -164,10 +224,18 @@ pub struct SupersonicInflow {
     pub w: f64,
     pub p: f64,
 }
-impl BoundaryCondition for SupersonicInflow {
-    fn ghost(&self, _interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+impl SupersonicInflow {
+    fn state(&self, _interior: &ConsVar, eos: &dyn Eos) -> ConsVar {
         let t = self.p / (self.rho * 287.058);
-        eos.prim_to_cons(&PrimVar::new(self.rho, self.u, self.v, self.w, self.p, t))
+    eos.prim_to_cons(&PrimVar::new(self.rho, self.u, self.v, self.w, self.p, t))
+    }
+}
+impl BoundaryCondition for SupersonicInflow {
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "SupersonicInflow"
@@ -187,6 +255,17 @@ impl BoundaryCondition for SlipWall {
         }
         state
     }
+    fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, _eos: &dyn Eos) -> ConsVar {
+        // m' = m - 2 (m·n) n: the same sign flip as `ghost` on a box side, and
+        // the correct mirror on a face of any orientation.
+        let mut state = *interior;
+        let n = face.unit_normal();
+        let mn = state.rho_u * n[0] + state.rho_v * n[1] + state.rho_w * n[2];
+        state.rho_u -= 2.0 * mn * n[0];
+        state.rho_v -= 2.0 * mn * n[1];
+        state.rho_w -= 2.0 * mn * n[2];
+        state
+    }
     fn name(&self) -> &'static str {
         "SlipWall"
     }
@@ -195,13 +274,21 @@ impl BoundaryCondition for SlipWall {
 /// Viscous no-slip adiabatic wall: reflect *all* momentum so the wall-interpolated
 /// velocity is zero (no-slip), keeping density and total energy (adiabatic).
 pub struct NoSlipWall;
-impl BoundaryCondition for NoSlipWall {
-    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, _eos: &dyn Eos) -> ConsVar {
+impl NoSlipWall {
+    fn state(&self, interior: &ConsVar, _eos: &dyn Eos) -> ConsVar {
         let mut state = *interior;
-        state.rho_u = -state.rho_u;
-        state.rho_v = -state.rho_v;
-        state.rho_w = -state.rho_w;
-        state
+    state.rho_u = -state.rho_u;
+    state.rho_v = -state.rho_v;
+    state.rho_w = -state.rho_w;
+    state
+    }
+}
+impl BoundaryCondition for NoSlipWall {
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "NoSlipWall"
@@ -213,6 +300,9 @@ pub struct Symmetry;
 impl BoundaryCondition for Symmetry {
     fn ghost(&self, interior: &ConsVar, side: BoundarySide, eos: &dyn Eos) -> ConsVar {
         SlipWall.ghost(interior, side, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        SlipWall.ghost_at(interior, face, eos)
     }
     fn name(&self) -> &'static str {
         "Symmetry"
@@ -228,10 +318,18 @@ pub struct SubsonicInflow {
     pub w: f64,
     pub t: f64,
 }
+impl SubsonicInflow {
+    fn state(&self, interior: &ConsVar, eos: &dyn Eos) -> ConsVar {
+        let p_interior = eos.pressure(interior);
+    eos.prim_to_cons(&PrimVar::new(self.rho, self.u, self.v, self.w, p_interior, self.t))
+    }
+}
 impl BoundaryCondition for SubsonicInflow {
     fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
-        let p_interior = eos.pressure(interior);
-        eos.prim_to_cons(&PrimVar::new(self.rho, self.u, self.v, self.w, p_interior, self.t))
+        self.state(interior, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "SubsonicInflow"
@@ -243,12 +341,20 @@ impl BoundaryCondition for SubsonicInflow {
 pub struct PressureOutlet {
     pub p: f64,
 }
+impl PressureOutlet {
+    fn state(&self, interior: &ConsVar, eos: &dyn Eos) -> ConsVar {
+        let mut prim = eos.cons_to_prim(interior);
+    prim.p = self.p;
+    prim.t = self.p / (prim.rho * 287.058);
+    eos.prim_to_cons(&prim)
+    }
+}
 impl BoundaryCondition for PressureOutlet {
     fn ghost(&self, interior: &ConsVar, _side: BoundarySide, eos: &dyn Eos) -> ConsVar {
-        let mut prim = eos.cons_to_prim(interior);
-        prim.p = self.p;
-        prim.t = self.p / (prim.rho * 287.058);
-        eos.prim_to_cons(&prim)
+        self.state(interior, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, _face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.state(interior, eos)
     }
     fn name(&self) -> &'static str {
         "PressureOutlet"
@@ -257,48 +363,56 @@ impl BoundaryCondition for PressureOutlet {
 
 // ─── BoundaryRegistry ────────────────────────────────────────────────────────
 
-/// Per-side boundary conditions, indexed by [`BoundarySide`] (`0..6`).
+/// Boundary conditions per patch. Patches `0..6` are the structured
+/// [`BoundarySide`]s; an unstructured mesh may use more. Any patch not set
+/// explicitly gets [`SupersonicOutflow`] (zero-gradient).
 #[derive(Clone)]
 pub struct BoundaryRegistry {
-    sides: [Arc<dyn BoundaryCondition>; 6],
+    patches: Vec<Arc<dyn BoundaryCondition>>,
+    fallback: Arc<dyn BoundaryCondition>,
 }
 
 impl Default for BoundaryRegistry {
-    /// All six sides default to [`SupersonicOutflow`] (zero-gradient).
+    /// Every patch defaults to [`SupersonicOutflow`] (zero-gradient).
     fn default() -> Self {
-        Self {
-            sides: std::array::from_fn(|_| Arc::new(SupersonicOutflow) as Arc<dyn BoundaryCondition>),
-        }
+        let fallback: Arc<dyn BoundaryCondition> = Arc::new(SupersonicOutflow);
+        Self { patches: vec![Arc::clone(&fallback); 6], fallback }
     }
 }
 
 impl BoundaryRegistry {
-    /// Set the BC on one side.
-    pub fn set<B: BoundaryCondition + 'static>(&mut self, side: BoundarySide, bc: B) -> &mut Self {
-        self.sides[side as usize] = Arc::new(bc);
+    /// Set the BC on one patch (a [`BoundarySide`] or a [`PatchId`]).
+    pub fn set<B: BoundaryCondition + 'static>(&mut self, patch: impl PatchKey, bc: B) -> &mut Self {
+        let p = patch.patch_id() as usize;
+        if p >= self.patches.len() {
+            self.patches.resize(p + 1, Arc::clone(&self.fallback));
+        }
+        self.patches[p] = Arc::new(bc);
         self
     }
 
     /// Builder form of [`set`](Self::set).
-    pub fn with<B: BoundaryCondition + 'static>(mut self, side: BoundarySide, bc: B) -> Self {
-        self.set(side, bc);
+    pub fn with<B: BoundaryCondition + 'static>(mut self, patch: impl PatchKey, bc: B) -> Self {
+        self.set(patch, bc);
         self
     }
 
     /// Set both sides of an axis (0=x, 1=y, 2=z) to the same BC.
     pub fn with_axis<B: BoundaryCondition + 'static>(mut self, axis: usize, bc: B) -> Self {
         let arc: Arc<dyn BoundaryCondition> = Arc::new(bc);
-        self.sides[2 * axis] = Arc::clone(&arc);
-        self.sides[2 * axis + 1] = arc;
+        self.patches[2 * axis] = Arc::clone(&arc);
+        self.patches[2 * axis + 1] = arc;
         self
     }
 
-    pub fn get(&self, side: BoundarySide) -> &dyn BoundaryCondition {
-        &*self.sides[side as usize]
+    /// The BC on a patch.
+    pub fn get(&self, patch: impl PatchKey) -> &dyn BoundaryCondition {
+        &**self.patches.get(patch.patch_id() as usize).unwrap_or(&self.fallback)
     }
 
-    pub fn is_periodic(&self, side: BoundarySide) -> bool {
-        self.get(side).is_periodic()
+    /// Whether a patch is marked [`Periodic`].
+    pub fn is_periodic(&self, patch: impl PatchKey) -> bool {
+        self.get(patch).is_periodic()
     }
 
     /// Reject a half-periodic axis before a solver can step it.
@@ -469,19 +583,19 @@ pub fn boundary_system<M: FvMesh>(
     let outside = inputs.as_ref().map(|i| &i.0);
     mesh.for_each_face(&mut |f| {
         if let Some(p) = f.patch {
-            let side = BoundarySide::from_index(p).expect("valid boundary side");
-            if bcs.is_periodic(side) {
+            if bcs.is_periodic(p) {
                 return;
             }
             let interior = state.u[f.owner];
             let face = BoundaryFace {
-                side,
+                patch: p,
+                side: BoundarySide::from_index(p),
                 centroid: f.centroid,
                 area_normal: f.area_normal,
                 ghost_cell: f.other,
                 outside: outside.and_then(|o| o.get(&f.other)),
             };
-            state.u[f.other] = bcs.get(side).ghost_at(&interior, &face, eos);
+            state.u[f.other] = bcs.get(p).ghost_at(&interior, &face, eos);
         }
     });
 }
@@ -490,6 +604,83 @@ pub fn boundary_system<M: FvMesh>(
 mod tests {
     use super::*;
     use cfd_eos::IdealGas;
+
+    /// A face on patch 7 (not a box side) with outward normal `n`.
+    fn slanted_face(n: Vec3) -> BoundaryFace<'static> {
+        BoundaryFace { patch: 7, side: None, centroid: [0.0; 3], area_normal: n, ghost_cell: 0, outside: None }
+    }
+
+    #[test]
+    fn slip_wall_mirrors_about_a_slanted_normal() {
+        let eos = IdealGas::air();
+        let interior = eos.prim_to_cons(&PrimVar::new(1.2, 100.0, 50.0, 25.0, 101325.0, 288.0));
+        let s = 0.5f64.sqrt();
+        // Area-weighted: the BC must normalise it.
+        let face = slanted_face([2.0 * s, 2.0 * s, 0.0]);
+        let n = face.unit_normal();
+        let g = SlipWall.ghost_at(&interior, &face, &eos);
+        let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        let (m, mg) = ([interior.rho_u, interior.rho_v, interior.rho_w], [g.rho_u, g.rho_v, g.rho_w]);
+        // Normal momentum flips, tangential momentum is kept.
+        assert!((dot(mg, n) + dot(m, n)).abs() < 1e-9);
+        let t = [s, -s, 0.0];
+        assert!((dot(mg, t) - dot(m, t)).abs() < 1e-9);
+        assert!((g.rho_w - interior.rho_w).abs() < 1e-12);
+        assert_eq!(g.rho, interior.rho);
+        assert_eq!(g.rho_e, interior.rho_e);
+    }
+
+    #[test]
+    fn slip_wall_ghost_at_matches_ghost_on_box_sides() {
+        let eos = IdealGas::air();
+        let interior = eos.prim_to_cons(&PrimVar::new(1.2, 100.0, 50.0, 25.0, 101325.0, 288.0));
+        for p in 0..6u32 {
+            let side = BoundarySide::from_index(p).unwrap();
+            let mut n = [0.0; 3];
+            n[side.axis()] = if p % 2 == 1 { 3.0 } else { -3.0 };
+            let face = BoundaryFace { patch: p, side: Some(side), ..slanted_face(n) };
+            assert_eq!(SlipWall.ghost_at(&interior, &face, &eos), SlipWall.ghost(&interior, side, &eos));
+        }
+    }
+
+    #[test]
+    fn stock_conditions_work_on_patches_beyond_the_box_sides() {
+        let eos = IdealGas::air();
+        let interior = eos.prim_to_cons(&PrimVar::new(1.2, 100.0, 50.0, 25.0, 101325.0, 288.0));
+        let face = slanted_face([1.0, 0.0, 0.0]);
+        let bcs: [&dyn BoundaryCondition; 6] = [
+            &SupersonicOutflow,
+            &NoSlipWall,
+            &Symmetry,
+            &SubsonicInflow { rho: 1.2, u: 10.0, v: 0.0, w: 0.0, t: 300.0 },
+            &PressureOutlet { p: 1e5 },
+            &FromOutside::new(),
+        ];
+        for bc in bcs {
+            bc.ghost_at(&interior, &face, &eos);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "implement ghost_at")]
+    fn a_side_only_condition_names_itself_on_a_non_box_patch() {
+        struct SideOnly;
+        impl BoundaryCondition for SideOnly {
+            fn ghost(&self, i: &ConsVar, _s: BoundarySide, _e: &dyn Eos) -> ConsVar {
+                *i
+            }
+        }
+        SideOnly.ghost_at(&ConsVar::default(), &slanted_face([1.0, 0.0, 0.0]), &IdealGas::air());
+    }
+
+    #[test]
+    fn registry_accepts_patches_beyond_the_box_sides() {
+        let reg = BoundaryRegistry::default().with(9u32, SlipWall);
+        assert_eq!(reg.get(9u32).name(), "SlipWall");
+        assert_eq!(reg.get(7u32).name(), "SupersonicOutflow");
+        assert_eq!(reg.get(42u32).name(), "SupersonicOutflow");
+        assert_eq!(reg.get(BoundarySide::XLo).name(), "SupersonicOutflow");
+    }
 
     #[test]
     fn outflow_copies_interior() {

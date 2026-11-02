@@ -61,18 +61,18 @@ pub trait RiemannFlux: Send + Sync {
     /// loop scales it by `area / cell_volume` and subtracts it from `owner`'s
     /// RHS (and adds it to `other`'s, for an interior face).
     ///
-    /// The default implementation handles **axis-aligned** normals (every face
-    /// of a structured Cartesian mesh): it recovers the axis `dir` and sign from
-    /// `normal` and reuses the direction-indexed [`flux`](Self::flux), so the
-    /// numerics are bit-for-bit those of toy-cfd's fused sweep. A `+axis` face
-    /// is `flux(owner, other, dir)`; a `-axis` face is `-flux(other, owner, dir)`
-    /// (owner sits on the `+` side of the interface, so the upwind ordering
-    /// flips and the outward normal negates the result).
+    /// The default implementation works for any normal. On an **axis-aligned**
+    /// normal (every face of a structured Cartesian mesh) it recovers the axis
+    /// `dir` and sign and reuses the direction-indexed [`flux`](Self::flux), so
+    /// the numerics are bit-for-bit those of toy-cfd's fused sweep. A `+axis`
+    /// face is `flux(owner, other, dir)`; a `-axis` face is
+    /// `-flux(other, owner, dir)` (owner sits on the `+` side of the interface,
+    /// so the upwind ordering flips and the outward normal negates the result).
     ///
-    /// A mesh with rotated/unstructured faces must override this with a true
-    /// normal-frame solver (rotate momentum into the face frame, solve 1-D, rotate
-    /// back). That is post-M1; the `debug_assert` in [`axis_and_sign`] guards
-    /// against silently feeding a non-axis-aligned normal to this fallback.
+    /// On any other normal (unstructured or rotated faces) it uses the rotational
+    /// invariance of the Euler equations: rotate both states' momentum into the
+    /// face frame `(n̂, t̂₁, t̂₂)`, solve the 1-D problem along x, and rotate the
+    /// momentum flux back. Every scheme that implements `flux` gets this for free.
     fn flux_normal(
         &self,
         owner: &ConsVar,
@@ -80,15 +80,66 @@ pub trait RiemannFlux: Send + Sync {
         eos: &dyn Eos,
         normal: [f64; 3],
     ) -> ConsVar {
-        let (dir, sign) = axis_and_sign(&normal);
-        if sign >= 0.0 {
-            self.flux(owner, other, eos, dir)
-        } else {
-            self.flux(other, owner, eos, dir) * -1.0
+        if let Some((dir, sign)) = axis_aligned(&normal) {
+            return if sign >= 0.0 {
+                self.flux(owner, other, eos, dir)
+            } else {
+                self.flux(other, owner, eos, dir) * -1.0
+            };
         }
+        let frame = face_frame(normal);
+        let f = self.flux(&to_frame(owner, &frame), &to_frame(other, &frame), eos, 0);
+        from_frame(&f, &frame)
     }
 
     fn name(&self) -> &'static str { "<unnamed>" }
+}
+
+/// `Some((axis, sign))` when `n` is axis-aligned (to a relative 1e-12), else
+/// `None`.
+#[inline]
+pub fn axis_aligned(n: &[f64; 3]) -> Option<(usize, f64)> {
+    let (a, b, c) = (n[0].abs(), n[1].abs(), n[2].abs());
+    let max = a.max(b).max(c);
+    if max > 0.0 && (a + b + c - max) <= 1e-12 * max {
+        Some(axis_and_sign(n))
+    } else {
+        None
+    }
+}
+
+/// An orthonormal frame `[n̂, t̂₁, t̂₂]` (rows) whose first axis is the unit
+/// vector `n`.
+pub fn face_frame(n: [f64; 3]) -> [[f64; 3]; 3] {
+    // Pick the coordinate axis least aligned with n to build t̂₁.
+    let a = if n[0].abs() <= n[1].abs() && n[0].abs() <= n[2].abs() {
+        [1.0, 0.0, 0.0]
+    } else if n[1].abs() <= n[2].abs() {
+        [0.0, 1.0, 0.0]
+    } else {
+        [0.0, 0.0, 1.0]
+    };
+    let cross = |u: [f64; 3], v: [f64; 3]| {
+        [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+    };
+    let t1 = cross(n, a);
+    let l = (t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]).sqrt();
+    let t1 = [t1[0] / l, t1[1] / l, t1[2] / l];
+    [n, t1, cross(n, t1)]
+}
+
+/// Rotate a state's momentum into `frame` (rows are the new axes).
+pub fn to_frame(u: &ConsVar, frame: &[[f64; 3]; 3]) -> ConsVar {
+    let m = [u.rho_u, u.rho_v, u.rho_w];
+    let r = frame.map(|e| e[0] * m[0] + e[1] * m[1] + e[2] * m[2]);
+    ConsVar { rho: u.rho, rho_u: r[0], rho_v: r[1], rho_w: r[2], rho_e: u.rho_e }
+}
+
+/// Rotate a flux's momentum components back out of `frame`.
+pub fn from_frame(f: &ConsVar, frame: &[[f64; 3]; 3]) -> ConsVar {
+    let m = [f.rho_u, f.rho_v, f.rho_w];
+    let back = |d: usize| frame[0][d] * m[0] + frame[1][d] * m[1] + frame[2][d] * m[2];
+    ConsVar { rho: f.rho, rho_u: back(0), rho_v: back(1), rho_w: back(2), rho_e: f.rho_e }
 }
 
 /// Recover the dominant axis (0=x, 1=y, 2=z) and its sign (`+1`/`-1`) from a
@@ -603,6 +654,33 @@ mod tests {
     use super::*;
     use cfd_eos::IdealGas;
     use cfd_state::PrimVar;
+
+    #[test]
+    fn flux_normal_is_rotation_invariant_for_slanted_faces() {
+        let eos = IdealGas::air();
+        // A 1-D problem along x, then the same problem rotated so x maps to n.
+        let (c, s) = (0.6f64, 0.8f64);
+        let rot = |v: [f64; 3]| [c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]];
+        for (va, vb) in [([30.0, 5.0, -2.0], [10.0, -4.0, 1.0]), ([-80.0, 0.0, 0.0], [120.0, 3.0, 0.0])] {
+            let a = eos.prim_to_cons(&PrimVar::new(1.0, va[0], va[1], va[2], 100000.0, 348.4));
+            let b = eos.prim_to_cons(&PrimVar::new(0.5, vb[0], vb[1], vb[2], 50000.0, 348.4));
+            let (ra, rb) = (rot(va), rot(vb));
+            let a2 = eos.prim_to_cons(&PrimVar::new(1.0, ra[0], ra[1], ra[2], 100000.0, 348.4));
+            let b2 = eos.prim_to_cons(&PrimVar::new(0.5, rb[0], rb[1], rb[2], 50000.0, 348.4));
+            let n = rot([1.0, 0.0, 0.0]);
+            let schemes: [&dyn RiemannFlux; 3] = [&Rusanov, &HllcTextbook, &Hllc];
+            for scheme in schemes {
+                let f = scheme.flux(&a, &b, &eos, 0);
+                let g = scheme.flux_normal(&a2, &b2, &eos, n);
+                let fm = rot([f.rho_u, f.rho_v, f.rho_w]);
+                let tol = 1e-9 * (f.rho_e.abs() + 1.0);
+                assert!((g.rho - f.rho).abs() < tol, "{}", scheme.name());
+                assert!((g.rho_e - f.rho_e).abs() < tol, "{}", scheme.name());
+                assert!((g.rho_u - fm[0]).abs() < tol && (g.rho_v - fm[1]).abs() < tol, "{}", scheme.name());
+                assert!((g.rho_w - fm[2]).abs() < tol, "{}", scheme.name());
+            }
+        }
+    }
 
     #[test]
     fn flux_normal_matches_directional_flux() {
