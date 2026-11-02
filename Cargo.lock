@@ -235,7 +235,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "field_amr"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=main#82ef611b246db99c88a62ad46aa13d9ba684d95d"
+source = "git+https://github.com/SueHeir/field.git?branch=main#28c532a89c0aaae4f93da5643592b2f91ee4c34d"
 dependencies = [
  "field_core",
 ]
@@ -243,11 +243,12 @@ dependencies = [
 [[package]]
 name = "field_core"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=main#82ef611b246db99c88a62ad46aa13d9ba684d95d"
+source = "git+https://github.com/SueHeir/field.git?branch=main#28c532a89c0aaae4f93da5643592b2f91ee4c34d"
 dependencies = [
  "field_derive",
  "grass_app",
  "grass_derive",
+ "grass_io",
  "grass_map",
  "grass_mpi",
  "grass_scheduler",
@@ -257,7 +258,7 @@ dependencies = [
 [[package]]
 name = "field_derive"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=main#82ef611b246db99c88a62ad46aa13d9ba684d95d"
+source = "git+https://github.com/SueHeir/field.git?branch=main#28c532a89c0aaae4f93da5643592b2f91ee4c34d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -267,7 +268,7 @@ dependencies = [
 [[package]]
 name = "field_p4est"
 version = "0.1.0"
-source = "git+https://github.com/SueHeir/field.git?branch=main#82ef611b246db99c88a62ad46aa13d9ba684d95d"
+source = "git+https://github.com/SueHeir/field.git?branch=main#28c532a89c0aaae4f93da5643592b2f91ee4c34d"
 dependencies = [
  "cc",
  "field_core",
