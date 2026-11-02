@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 /// RK3 substep marker — also the "where am I in the step?" flag the solver reads
 /// to gate once-per-step work (CFL, save-state).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RkStage {
     First,
     Second,

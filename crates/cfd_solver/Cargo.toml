@@ -12,6 +12,7 @@ field_core.workspace = true
 grass_app.workspace = true
 grass_scheduler.workspace = true
 grass_mpi.workspace = true
+grass_io.workspace = true
 cfd_state.workspace = true
 cfd_eos.workspace = true
 cfd_riemann.workspace = true
