@@ -17,7 +17,8 @@
 
 use cfd_eos::{Eos, EosResource};
 use cfd_state::{CfdState, ConsVar, PrimVar};
-use field_core::{BoundarySide, FieldRegistry, FvMesh, MeshPeriodicity, StructuredMesh};
+use field_core::{BoundarySide, FieldRegistry, FvMesh, MeshPeriodicity, StructuredMesh, Vec3};
+use std::collections::HashMap;
 use grass_app::prelude::*;
 use grass_scheduler::Res;
 use std::sync::Arc;
@@ -28,6 +29,14 @@ use std::sync::Arc;
 /// owner state, which [`BoundarySide`] the face lies on, and the EOS.
 pub trait BoundaryCondition: Send + Sync {
     fn ghost(&self, interior: &ConsVar, side: BoundarySide, eos: &dyn Eos) -> ConsVar;
+
+    /// The ghost state given the whole face: where it is, and any outside
+    /// state another code supplied for it through [`BoundaryInputs`]. The
+    /// default ignores both and calls [`ghost`](Self::ghost), so an owner-only
+    /// condition implements just that.
+    fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        self.ghost(interior, face.side, eos)
+    }
     fn is_periodic(&self) -> bool {
         false
     }
@@ -36,7 +45,85 @@ pub trait BoundaryCondition: Send + Sync {
     }
 }
 
+/// One physical-boundary face, as [`BoundaryCondition::ghost_at`] sees it.
+pub struct BoundaryFace<'a> {
+    /// Which side of the domain the face is on.
+    pub side: BoundarySide,
+    /// Face centroid in physical space.
+    pub centroid: Vec3,
+    /// Area-weighted outward normal.
+    pub area_normal: Vec3,
+    /// The ghost cell being filled.
+    pub ghost_cell: usize,
+    /// The state another code supplied for this ghost cell, if any.
+    pub outside: Option<&'a ConsVar>,
+}
+
+/// Outside states for ghost cells, by FIELD cell index, written by whatever
+/// drives the solver (for example a coupler with another code) before the
+/// `Boundary` phase. [`FromOutside`] imposes them; any condition can read
+/// them through [`BoundaryFace::outside`]. Added by the boundary plugins.
+#[derive(Default, Debug, Clone)]
+pub struct BoundaryInputs(pub HashMap<usize, ConsVar>);
+
 // ─── Stock boundary conditions ───────────────────────────────────────────────
+
+/// The ghost state another code supplied in [`BoundaryInputs`]: the side of
+/// a coupled interface. A ghost cell with no supplied state falls back to
+/// `otherwise`.
+pub struct FromOutside<B: BoundaryCondition = SupersonicOutflow> {
+    pub otherwise: B,
+}
+
+impl FromOutside {
+    /// Fall back to zero-gradient where no outside state was supplied.
+    pub fn new() -> Self {
+        Self { otherwise: SupersonicOutflow }
+    }
+}
+
+impl Default for FromOutside {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<B: BoundaryCondition> BoundaryCondition for FromOutside<B> {
+    fn ghost(&self, interior: &ConsVar, side: BoundarySide, eos: &dyn Eos) -> ConsVar {
+        self.otherwise.ghost(interior, side, eos)
+    }
+    fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        match face.outside {
+            Some(u) => *u,
+            None => self.otherwise.ghost_at(interior, face, eos),
+        }
+    }
+    fn name(&self) -> &'static str {
+        "FromOutside"
+    }
+}
+
+/// A condition written as a closure over the interior state, the face and the
+/// EOS, for profiles that depend on position (an inlet profile, a moving lid).
+pub struct FnBoundary<F>(pub F)
+where
+    F: Fn(&ConsVar, &BoundaryFace, &dyn Eos) -> ConsVar + Send + Sync;
+
+impl<F> BoundaryCondition for FnBoundary<F>
+where
+    F: Fn(&ConsVar, &BoundaryFace, &dyn Eos) -> ConsVar + Send + Sync,
+{
+    fn ghost(&self, interior: &ConsVar, _side: BoundarySide, _eos: &dyn Eos) -> ConsVar {
+        // Never called by the boundary system, which always has the face.
+        *interior
+    }
+    fn ghost_at(&self, interior: &ConsVar, face: &BoundaryFace, eos: &dyn Eos) -> ConsVar {
+        (self.0)(interior, face, eos)
+    }
+    fn name(&self) -> &'static str {
+        "FnBoundary"
+    }
+}
 
 /// Supersonic outflow / zero-gradient: copy the interior state into the ghost.
 pub struct SupersonicOutflow;
@@ -273,6 +360,7 @@ impl<M: field_core::FvMesh> BoundaryPlugin<M> {
 impl<M: field_core::FvMesh> Plugin for BoundaryPlugin<M> {
     fn build(&self, app: &mut App) {
         app.add_resource(self.registry.clone());
+        app.add_resource(BoundaryInputs::default());
         app.add_update_system(boundary_system::<M>, field_core::MeshScheduleSet::Boundary);
     }
 
@@ -316,6 +404,7 @@ impl<M: field_core::StructuredMesh> Plugin for StructuredBoundaryPlugin<M> {
             .unwrap_or_else(|message| panic!("invalid periodic boundary configuration: {message}"));
         app.add_resource(self.registry.clone());
         app.add_resource(self.registry.mesh_periodicity());
+        app.add_resource(BoundaryInputs::default());
         app.add_setup_system(check_periodic_mesh_system::<M>, ScheduleSetupSet::PostSetup);
         app.add_update_system(boundary_system::<M>, field_core::MeshScheduleSet::Boundary);
     }
@@ -373,9 +462,11 @@ pub fn boundary_system<M: FvMesh>(
     reg: Res<FieldRegistry>,
     bcs: Res<BoundaryRegistry>,
     eos: Res<EosResource>,
+    inputs: Option<Res<BoundaryInputs>>,
 ) {
     let mut state = reg.expect_mut::<CfdState>("CfdState not registered");
     let eos: &dyn Eos = &*eos.0;
+    let outside = inputs.as_ref().map(|i| &i.0);
     mesh.for_each_face(&mut |f| {
         if let Some(p) = f.patch {
             let side = BoundarySide::from_index(p).expect("valid boundary side");
@@ -383,7 +474,14 @@ pub fn boundary_system<M: FvMesh>(
                 return;
             }
             let interior = state.u[f.owner];
-            state.u[f.other] = bcs.get(side).ghost(&interior, side, eos);
+            let face = BoundaryFace {
+                side,
+                centroid: f.centroid,
+                area_normal: f.area_normal,
+                ghost_cell: f.other,
+                outside: outside.and_then(|o| o.get(&f.other)),
+            };
+            state.u[f.other] = bcs.get(side).ghost_at(&interior, &face, eos);
         }
     });
 }

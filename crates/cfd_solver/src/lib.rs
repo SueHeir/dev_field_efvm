@@ -58,6 +58,7 @@ impl Default for SolverConfig {
 }
 
 /// Per-step solver state advanced by the scheduler.
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct SolverState {
     pub dt: f64,
     pub time: f64,
@@ -891,6 +892,9 @@ impl Plugin for IntegratorPlugin {
         app.add_resource(TimeIntegratorResource(self.integrator.clone()));
         app.add_resource(SolverState::default());
         app.add_resource(grass_app::StepBoundary::default());
+        // Time, step and RK stage go into checkpoints; the fields themselves
+        // are saved by FIELD's registry.
+        grass_io::CheckpointAppExt::checkpoint::<SolverState>(app, "efvm.solver_state");
     }
     fn provides(&self) -> Vec<&str> {
         vec!["time_integrator"]
