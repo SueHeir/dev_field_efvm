@@ -145,7 +145,7 @@ impl Plugin for OutputPlugin {
             if let Err(e) = write_vtk(&path, &*mesh, &state, &*eos.0) {
                 eprintln!("OutputPlugin: failed to write {path}: {e}");
             } else {
-                println!("OutputPlugin: wrote {path}");
+                grass_app::say!("OutputPlugin: wrote {path}");
             }
         });
     }
