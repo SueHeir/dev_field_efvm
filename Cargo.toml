@@ -21,6 +21,8 @@ members = [
     "crates/cfd_ibm",
     "crates/cfd_output",
 ]
+# Optional Mutation++ wrapper: its own workspace, so this one never needs C++.
+exclude = ["crates/cfd_mutation"]
 
 [workspace.package]
 version = "0.1.0"

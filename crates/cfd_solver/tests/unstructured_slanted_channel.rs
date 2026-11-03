@@ -51,7 +51,13 @@ fn free_stream() -> ConsVar {
 }
 
 /// Largest relative deviation from the free stream after `steps` steps.
+/// Both tests build an App with `CommPlugin`, and MPI calls from two test
+/// threads at once intermittently abort (`free(): invalid size` inside
+/// `MPI_Allreduce`). Run them one at a time.
+static MPI_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn run(walls: impl BoundaryCondition + Clone + 'static, steps: usize) -> f64 {
+    let _mpi = MPI_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mesh = sheared(PolyMesh::triangle_prisms(16, 12, [0.0, 0.0], [1.0, 1.0], 0.1, 0.3), SHEAR);
     mesh.validate().expect("sheared mesh is closed");
     let bcs = BoundaryRegistry::default()

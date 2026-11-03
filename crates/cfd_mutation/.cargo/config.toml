@@ -1,0 +1,4 @@
+# Separate Mutation++ mixtures on different threads hang or crash (shared
+# global state inside the library), so tests run one at a time.
+[env]
+RUST_TEST_THREADS = "1"
