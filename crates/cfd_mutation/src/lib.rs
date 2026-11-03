@@ -337,7 +337,7 @@ impl EquilibriumEos {
             .collect()
     }
 
-    fn from_cons(&self, u: &ConsVar) -> ThermoState {
+    fn cons_state(&self, u: &ConsVar) -> ThermoState {
         let e = (u.rho_e - u.kinetic_energy()) / u.rho;
         self.state_rho_e(u.rho, e)
     }
@@ -464,7 +464,7 @@ impl GuessTable {
 
 impl Eos for EquilibriumEos {
     fn cons_to_prim(&self, u: &ConsVar) -> PrimVar {
-        let s = self.from_cons(u);
+        let s = self.cons_state(u);
         let inv = 1.0 / u.rho;
         PrimVar::new(u.rho, u.rho_u * inv, u.rho_v * inv, u.rho_w * inv, s.p, s.t)
     }
@@ -482,11 +482,11 @@ impl Eos for EquilibriumEos {
     }
 
     fn pressure(&self, u: &ConsVar) -> f64 {
-        self.from_cons(u).p
+        self.cons_state(u).p
     }
 
     fn sound_speed(&self, u: &ConsVar) -> f64 {
-        let s = self.from_cons(u);
+        let s = self.cons_state(u);
         match self.sound {
             SoundSpeed::Equilibrium => s.a_eq,
             SoundSpeed::Frozen => s.a_frozen,
