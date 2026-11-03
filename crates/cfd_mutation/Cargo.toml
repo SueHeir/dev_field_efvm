@@ -1,0 +1,24 @@
+[package]
+name = "cfd_mutation"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Mutation++ thermochemistry behind dev_field_efvm's Eos trait (optional; needs a Mutation++ install)."
+publish = false
+links = "mutation++"
+
+# Its own workspace, like grass's mock_icarus: building dev_field_efvm never
+# needs a C++ toolchain or Mutation++. Build this crate from its own directory.
+[workspace]
+
+[dependencies]
+cfd_eos = { path = "../cfd_eos" }
+cfd_state = { path = "../cfd_state" }
+
+[dev-dependencies]
+test_cfd = { path = "../test_cfd" }
+cfd_solver = { path = "../cfd_solver" }
+cfd_boundary = { path = "../cfd_boundary" }
+
+[build-dependencies]
+cc = "1"
